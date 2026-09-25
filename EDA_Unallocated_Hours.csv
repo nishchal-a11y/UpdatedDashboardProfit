@@ -1,0 +1,5 @@
+employee,email,reporting_to,in_employee_master,reason,hours,entries,top_categories
+Anusree P C,anusree@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,145.416667,100,"Hiring & Interview, Capacity Planning:82.42|Others:29.25|Internal communication:15.25"
+Abhinand CP,abhinand@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,111.666667,89,Others:107.92|Team meetings:2.75|Cross-Functional Coordination:1
+Divya Mangtani,divyamangtani@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,49.500000,38,Others:45|Employee Engagement Activities:3|Strategy & Planning:1.5
+Soham Rajhans,soham@finanshels.com,,no,Not in employee master (no reporting line or department),40.516667,18,Administrative tasks:21.52|Cross-Functional Coordination:6.5|Internal communication:5.5

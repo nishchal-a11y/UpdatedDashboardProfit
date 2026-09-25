@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Profitability</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="boot" class="boot"><div class="boot-inner"><span class="spinner"></span><p id="bootText">Loading EDA datasets</p></div></div>
+
+  <aside class="rail" id="rail">
+    <div class="rail-head">
+      <span class="brand-mark">P</span>
+      <div class="rail-title"><strong>Profitability</strong><small id="railWindow">—</small></div>
+    </div>
+    <nav class="rail-nav" id="railNav"></nav>
+    <div class="rail-foot">
+      <div class="cost-chip" id="costChip"><span class="dot"></span><span id="costChipText">Cost source not loaded</span></div>
+      <small id="railStamp"></small>
+    </div>
+  </aside>
+
+  <main class="page">
+    <header class="page-head">
+      <div class="page-head-top">
+        <p class="eyebrow">Operations intelligence</p>
+        <div class="head-actions">
+          <div class="range" id="rangeControl">
+            <span class="range-label">Window</span>
+            <input id="windowStart" type="date" aria-label="Window start">
+            <span class="range-sep">→</span>
+            <input id="windowEnd" type="date" aria-label="Window end">
+            <button class="ghost small" id="applyWindow" type="button">Apply</button>
+            <button class="ghost small" id="fullWindow" type="button">Full history</button>
+          </div>
+          <button class="ghost" id="expandAll" type="button">Expand all</button>
+          <button class="ghost" id="collapseAll" type="button">Collapse all</button>
+        </div>
+      </div>
+      <p class="range-status" id="windowStatus"></p>
+    </header>
+
+    <!-- ------------------------------------------------------------ filters -->
+    <section class="filters collapsed" id="filterBar">
+      <div class="filter-head" id="filterHead">
+        <button class="twist" type="button" aria-expanded="false"></button>
+        <strong>Filters</strong>
+        <span class="filter-summary" id="filterSummary"></span>
+        <button id="resetBtn" class="ghost small" type="button">Reset filters</button>
+      </div>
+      <div class="filter-body">
+      <div class="filter-row">
+        <div class="control grow">
+          <label for="search">Search</label>
+          <div class="search-wrap"><span>⌕</span><input id="search" type="search" placeholder="Client, project, team lead or person" autocomplete="off"></div>
+          <div class="search-suggest" id="searchSuggest" role="listbox" hidden></div>
+        </div>
+        <div class="control"><label for="clientFilter">Client</label><select id="clientFilter"></select></div>
+        <div class="control"><label for="tlFilter">Team lead</label><select id="tlFilter"></select></div>
+        <div class="control"><label for="employeeFilter">Person</label><select id="employeeFilter"></select></div>
+        <div class="control"><label for="serviceFilter">Service</label><select id="serviceFilter"></select></div>
+      </div>
+      <div class="filter-row">
+        <div class="control"><label for="statusFilter">Project status</label><select id="statusFilter"></select></div>
+        <div class="control"><label for="frequencyFilter">Frequency</label><select id="frequencyFilter"></select></div>
+        <div class="control"><label for="revenueTypeFilter">Revenue type</label><select id="revenueTypeFilter"></select></div>
+        <div class="control"><label for="methodFilter">Allocation method</label><select id="methodFilter"></select></div>
+        <div class="control"><label for="hoursBasis">Hours basis</label><select id="hoursBasis"><option value="all">All logged hours</option><option value="approved">Approved hours only</option></select></div>
+        <div class="control" title="Flat AED per hour applied to everyone. Leave blank to use the annual package rates."><label for="costPerHour">Cost per hour</label><input id="costPerHour" type="number" min="0" step="0.01" placeholder="Payroll rate"></div>
+      </div>
+      <div class="filter-row toggles">
+        <label class="toggle"><input type="checkbox" id="hideZeroRevenue"><span></span>Hide zero-revenue projects</label>
+        <label class="toggle"><input type="checkbox" id="hideUnallocated"><span></span>Hide unallocated bucket</label>
+        <label class="toggle"><input type="checkbox" id="hideNonLive"><span></span>Hide deleted &amp; future projects</label>
+        <label class="toggle" title="Off sends department-pool hours back to the Unallocated bucket instead of onto client projects."><input type="checkbox" id="deptAllocation" checked><span></span>Department allocation</label>
+      </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ overview -->
+    <section class="block" id="section-overview" data-section="overview">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="true"></button>
+        <div><h2>Overview</h2><p>Period-recognised revenue, delivered hours and margin for the current filter set.</p></div>
+        <div class="block-tools">
+          <label class="inline-control"><span>Costing mode</span><select id="costMode"><option value="absorption">Absorption (period payroll)</option><option value="standard">Standard rate</option></select></label>
+          <label class="inline-control" id="annualHoursWrap"><span>Annual hours</span><input id="annualHours" type="number" min="1" step="10" value="2080"></label>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="kpis" id="kpiGrid"></div>
+        <div class="mini-card"><h3>Hours by allocation method</h3><div class="bars" id="methodBars"></div></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ drill -->
+    <section class="block collapsed" id="section-drill" data-section="drill">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="false"></button>
+        <div><h2>Revenue &amp; margin drill-down</h2><p>Client → Project → Team lead → Submitted by. Click any row to descend a level.</p></div>
+        <div class="block-tools">
+          <button class="ghost" id="exportDrill" type="button">Export view</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <nav class="crumbs" id="crumbs" aria-label="Drill breadcrumb"></nav>
+        <div class="level-summary" id="levelSummary"></div>
+        <div class="table-scroll"><table class="grid"><thead id="drillHead"></thead><tbody id="drillBody"></tbody></table></div>
+        <div class="pager" id="drillPager"></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ hours -->
+    <section class="block collapsed" id="section-hours" data-section="hours">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="false"></button>
+        <div><h2>Delivery hours</h2><p>Team lead → Team participants → Client → Project. Click any row to descend a level.</p></div>
+        <div class="block-tools">
+          <button class="ghost" id="exportHours" type="button">Export</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="stat-strip" id="hoursStrip"></div>
+        <nav class="crumbs" id="hoursCrumbs" aria-label="Hours breadcrumb"></nav>
+        <div class="level-summary" id="hoursLevelSummary"></div>
+        <div class="table-scroll"><table class="grid"><thead id="hoursHead"></thead><tbody id="hoursBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ audit -->
+    <section class="block collapsed" id="section-audit" data-section="audit">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="false"></button>
+        <div><h2>Allocation audit</h2><p>Every allocated hour traced to the donor projects that set its weight.</p></div>
+        <div class="block-tools">
+          <label class="inline-control"><span>Person</span><select id="auditEmployee"></select></label>
+          <button class="ghost" id="exportAudit" type="button">Export</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <p class="note" id="auditNote"></p>
+        <div class="table-scroll"><table class="grid"><thead id="auditHead"></thead><tbody id="auditBody"></tbody></table></div>
+        <div class="pager" id="auditPager"></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ internal -->
+    <section class="block collapsed" id="section-internal" data-section="internal">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="false"></button>
+        <div><h2>Internal time</h2><p>Non-client hours by category. This is the pool that gets spread onto client projects.</p></div>
+        <div class="block-tools">
+          <label class="inline-control"><span>Group by</span><select id="internalDimension"><option value="internal_category">Category</option><option value="employee">Person</option><option value="reporting_to">Reporting TL</option><option value="department">Department</option></select></label>
+          <button class="ghost" id="exportInternal" type="button">Export</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="split">
+          <div class="mini-card wide"><h3 id="internalChartTitle">Top categories</h3><div class="bars" id="internalBars"></div></div>
+          <div class="mini-card"><h3>Internal load</h3><div class="stat-strip vertical" id="internalStrip"></div></div>
+        </div>
+        <div class="crumbs" id="internalCrumbs"></div>
+        <div class="level-summary" id="internalLevelSummary"></div>
+        <div class="table-scroll"><table class="grid"><thead id="internalHead"></thead><tbody id="internalBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ people -->
+    <section class="block collapsed" id="section-people" data-section="people">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="false"></button>
+        <div><h2>People</h2><p>Utilisation, allocation coverage and cost per person across the window.</p></div>
+        <div class="block-tools">
+          <label class="inline-control"><span>Show</span><select id="peopleScope"><option value="all">All people</option><option value="unallocated">With unallocated hours</option><option value="nomaster">Missing from master</option><option value="nocost">Missing cost</option></select></label>
+          <button class="ghost" id="exportPeople" type="button">Export</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <p class="note" id="peopleNote"></p>
+        <div class="table-scroll"><table class="grid"><thead id="peopleHead"></thead><tbody id="peopleBody"></tbody></table></div>
+        <div class="drawer" id="peopleDrill" hidden></div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------- clients (own page) -->
+    <section class="block" id="section-clients" data-section="clients" data-page="clients">
+      <div class="block-head">
+        <div><h2>Client summary</h2><p>Clients clustered on revenue and delivered hours, costed at a blended rate, then drilled Client → Project → Team lead → People.</p></div>
+        <div class="block-tools">
+          <label class="inline-control" title="Auto sweeps k and keeps the best-scoring split. Pin a number to inspect a particular shape."><span>Clusters</span><select id="clusterK">
+            <option value="auto">Auto</option>
+            <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+          </select></label>
+          <button class="ghost" id="exportClients" type="button">Export view</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="stat-strip" id="clientStrip"></div>
+
+        <div class="mini-card blend-card">
+          <h3>Blended hourly cost</h3>
+          <div class="blend-controls">
+            <label class="blend-input" title="Applied only to people with no annual package on file. Leave blank to leave them at zero cost."><span>Blended AED / h for uncosted people</span><input id="blendedRate" type="number" min="0" step="0.01" placeholder="Leave blank to price them at zero"></label>
+            <div class="blend-figures" id="blendFigures"></div>
+          </div>
+          <div class="coverage" id="costCoverage"></div>
+          <p class="note" id="blendNote"></p>
+        </div>
+
+        <div class="mini-card">
+          <h3>Client clusters</h3>
+          <p class="cluster-help">Clients are grouped on how much revenue they book and how many delivered hours they take. Groups are lettered biggest first, so <b>A</b> is the top revenue group, then <b>B</b>, <b>C</b> and so on; a <b>Zero revenue</b> group holds clients with hours logged but nothing booked against them. The pill is the group's <b>rate</b> &mdash; revenue per delivered hour measured against the company average: <b>High rate</b> is 125% of average or more, <b>Standard rate</b> is near average, <b>Low rate</b> is 80% or less. So a high-rate group earns more per hour worked, and a low-rate group takes more hours to earn the same money. Click a card to filter the table below to that group.</p>
+          <div class="cluster-cards" id="clusterCards"></div>
+          <p class="note" id="clusterNote"></p>
+        </div>
+
+        <nav class="crumbs" id="clientCrumbs" aria-label="Client breadcrumb"></nav>
+        <div class="level-summary" id="clientLevelSummary"></div>
+        <div class="table-scroll"><table class="grid"><thead id="clientHead"></thead><tbody id="clientBody"></tbody></table></div>
+        <div class="pager" id="clientPager"></div>
+
+        <div class="mini-card">
+          <div class="mini-card-head">
+            <h3>Full breakdown (EDA)</h3>
+            <button class="ghost" id="exportClientEda" type="button">Export table</button>
+          </div>
+          <p class="note" id="clientEdaNote"></p>
+          <div class="table-scroll">
+            <table class="grid eda-pivot" id="clientEdaTable">
+              <colgroup>
+                <col class="col-level"><col class="col-client"><col class="col-project"><col class="col-tl"><col class="col-person">
+                <col class="col-cluster"><col class="col-hours"><col class="col-revenue"><col class="col-cost">
+              </colgroup>
+              <thead><tr>
+                <th>Level</th>
+                <th>Client</th>
+                <th>Project</th>
+                <th>Team lead</th>
+                <th>Submitted by</th>
+                <th>Cluster</th>
+                <th class="num">Hours</th>
+                <th class="num">Revenue</th>
+                <th class="num">Cost</th>
+              </tr></thead>
+              <tbody id="clientEdaBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------- people summary (own page) -->
+    <section class="block" id="section-person-summary" data-section="personSummary" data-page="people-summary">
+      <div class="block-head">
+        <div><h2>People summary</h2><p>Who each person delivers for, the projects taking their hours, and what the mix says.</p></div>
+        <div class="block-tools">
+          <label class="inline-control"><span>Insight</span><select id="insightScope"></select></label>
+          <button class="ghost" id="exportPeopleSummary" type="button">Export</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="stat-strip" id="personSummaryStrip"></div>
+        <div class="insights" id="peopleInsights"></div>
+        <p class="note" id="personSummaryNote"></p>
+        <div class="table-scroll"><table class="grid"><thead id="personSummaryHead"></thead><tbody id="personSummaryBody"></tbody></table></div>
+        <div class="drawer" id="personSummaryDrill" hidden></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ sources -->
+    <section class="block" id="section-sources" data-section="sources">
+      <div class="block-head">
+        <button class="twist" type="button" aria-expanded="true"></button>
+        <div><h2>Sources</h2><p>Replace any source file and rebuild the EDA. The dashboard refreshes in place.</p></div>
+      </div>
+      <div class="block-body">
+        <div class="source-grid">
+          <label class="file-input"><span class="file-name">Projects.csv</span><small>Contract revenue, service, team lead, dates</small><input id="projectsFile" type="file" accept=".csv"><em class="file-state">No file chosen</em></label>
+          <label class="file-input"><span class="file-name">TimeSheet_Row_data.csv</span><small>Logged hours, status, day type, task</small><input id="timesheetFile" type="file" accept=".csv"><em class="file-state">No file chosen</em></label>
+          <label class="file-input"><span class="file-name">All Employees.xlsx</span><small>Reporting lines and departments</small><input id="employeesFile" type="file" accept=".xlsx"><em class="file-state">No file chosen</em></label>
+          <label class="file-input accent"><span class="file-name">Employee annual package</span><small>Email or name plus annual package. Unlocks cost and margin.</small><input id="packageFile" type="file" accept=".csv,.xlsx"><em class="file-state">No file chosen</em></label>
+        </div>
+        <div class="source-action">
+          <button id="regenerateBtn" class="primary" type="button">Rebuild EDA &amp; refresh</button>
+          <span id="regenerateStatus" class="regenerate-status"></span>
+        </div>
+        <div class="manifest" id="manifestSummary"></div>
+      </div>
+    </section>
+
+    <footer class="page-foot">
+      <span>Projects.csv · TimeSheet_Row_data.csv · All Employees - Finanshels.com.xlsx · Employee annual package</span>
+      <span id="updatedAt"></span>
+    </footer>
+  </main>
+
+  <div id="errorBox" class="error" hidden></div>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="app.js?v=11"></script>
+</body>
+</html>

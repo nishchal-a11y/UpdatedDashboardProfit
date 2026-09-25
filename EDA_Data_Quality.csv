@@ -1,0 +1,11 @@
+check,category,severity,count,value,detail
+Unallocated internal hours,Allocation,high,4,347.10,Internal time with no usable project or TL portfolio; parked in the Unallocated bucket
+Duplicate project rows merged,Revenue,medium,1816,4398812.03,"1582 project names appeared on multiple rows; summing rather than first-wins recovers 205,252.00 on projects with logged hours"
+Project names spanning multiple clients,Revenue,medium,90,0.00,Same project name mapped to more than one client_legal_name
+Projects with zero contract revenue,Revenue,medium,296,0.00,Hours logged against projects whose amount is 0
+Revenue on deleted projects,Revenue,high,7,16039.73,In-window revenue attached to projects flagged deleted
+Revenue on future projects,Revenue,medium,97,147452.40,In-window revenue attached to projects not yet started
+Timesheet people missing from employee master,People,high,3,0.00,"Anand Verma, Anuj Sankhe, Soham Rajhans"
+"Reporting line matched by name, not email",People,low,221,163.92,"Timesheet email missing from the master, so the reporting line came from a name match"
+Timesheet rows with no reporting line,People,medium,199,256.68,No reporting line could be resolved by email or by name
+Projects with revenue period mismatch,Revenue,high,1409,2162360.46,"Hours logged in window but the contract window does not overlap, or has no dates"

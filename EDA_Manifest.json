@@ -1,0 +1,278 @@
+{
+  "generated_at": "2026-09-22T16:51:09",
+  "window": {
+    "start": "2026-08-01",
+    "end": "2026-08-31",
+    "days": 31,
+    "months": 1.018,
+    "custom": true,
+    "data_start": "2026-07-22",
+    "data_end": "2026-09-04"
+  },
+  "sources": {
+    "projects": "Projects.csv",
+    "timesheet": "TimeSheet_Row_data.csv",
+    "employees": "All Employees - Finanshels.com.xlsx",
+    "package": null
+  },
+  "cost": {
+    "loaded": false,
+    "file": null,
+    "rows": 0,
+    "matched": 0,
+    "columns": {},
+    "unmatched_employees": [
+      "ARYAMOL C P",
+      "Aakarsh R",
+      "Aarju Khasgiwala",
+      "Abdul Afeef",
+      "Abhinand CP",
+      "Ajnas k",
+      "Akash Jaiswal",
+      "Aleena Cyriac Manimala",
+      "Aleena Joseph",
+      "Amal Ganesh",
+      "Amal John",
+      "Anand Verma",
+      "Anantha BS",
+      "Anita Kumawat",
+      "Ankit Dey",
+      "Anuj Sankhe",
+      "Anuj Sharma",
+      "Anusree P C",
+      "Arjun Krishn M",
+      "Arshiya Siddiq Chikte",
+      "Arya A",
+      "Aryanandhana PK",
+      "Ashish Agarwal",
+      "Aswin KD",
+      "Bhagyalakshmi KP",
+      "Bharathy Shibini",
+      "Bijin Jimmy",
+      "Devanshi Panchal",
+      "Divya Bothra",
+      "Divya Mangtani",
+      "Fathima Hiba",
+      "Fathimathul Shafna T",
+      "Firdous Jehan",
+      "Gayathri Anand",
+      "Gopika K",
+      "Hajra Osman",
+      "Hiba Sherin",
+      "Hitesh Mathur",
+      "Hritheesh Mohan",
+      "Jayesh Kriplani",
+      "Jerlin Rakshana",
+      "Jithin Radhakrishnan",
+      "Jyolsana M S",
+      "Jyoti Patil",
+      "Kiran Sebastian",
+      "Kirti Patel",
+      "Konduru Sudhakar",
+      "Krishna Subash",
+      "Lamiya Thesni",
+      "Lisha Jose"
+    ],
+    "default_annual_hours": 2080
+  },
+  "totals": {
+    "timesheet_rows": 12443,
+    "logged_hours": 15214.121389,
+    "client_hours": 7628.785278,
+    "internal_hours": 7585.336111,
+    "allocated_hours": 7238.236111,
+    "unallocated_hours": 347.1,
+    "emitted_hours": 15214.121156,
+    "reconciliation_drift": 0.000233,
+    "projects_touched": 1587,
+    "clients_touched": 971,
+    "employees": 102,
+    "clients_summarised": 971,
+    "people_summarised": 102,
+    "contract_revenue": 2662076.13,
+    "in_window_revenue": 2523816.1,
+    "eda_rows": 8548
+  },
+  "revenue_basis_mix": {
+    "Undated full": 414,
+    "Out-of-window full": 995,
+    "Prorated": 178
+  },
+  "allocation_method_hours": {
+    "AM Weighted Allocation": 621.0,
+    "Actual": 7628.7853,
+    "Department Weighted Allocation": 1185.583,
+    "Employee Weighted Allocation": 4954.4194,
+    "TL Self Portfolio Allocation": 477.2334,
+    "Unallocated": 347.1
+  },
+  "datasets": [
+    {
+      "key": "project_hours",
+      "label": "Project contributor rows",
+      "file": "EDA_Project_Hours.csv",
+      "rows": 8548
+    },
+    {
+      "key": "employee_utilisation",
+      "label": "Employee utilisation",
+      "file": "EDA_Employee_Utilization.csv",
+      "rows": 102
+    },
+    {
+      "key": "internal_time",
+      "label": "Internal time composition",
+      "file": "EDA_Internal_Time.csv",
+      "rows": 616
+    },
+    {
+      "key": "unallocated",
+      "label": "Unallocated hours register",
+      "file": "EDA_Unallocated_Hours.csv",
+      "rows": 4
+    },
+    {
+      "key": "unallocated_no_dept",
+      "label": "Unallocated hours register (department pool off)",
+      "file": "EDA_Unallocated_Hours_no_dept.csv",
+      "rows": 12
+    },
+    {
+      "key": "period_mismatch",
+      "label": "Revenue period mismatch",
+      "file": "EDA_Period_Mismatch.csv",
+      "rows": 1409
+    },
+    {
+      "key": "data_quality",
+      "label": "Data quality checks",
+      "file": "EDA_Data_Quality.csv",
+      "rows": 10
+    },
+    {
+      "key": "service_mix",
+      "label": "Service mix",
+      "file": "EDA_Service_Mix.csv",
+      "rows": 46
+    },
+    {
+      "key": "allocation_audit",
+      "label": "Allocation audit trail",
+      "file": "EDA_Allocation_Audit.csv",
+      "rows": 6613
+    },
+    {
+      "key": "employee_cost",
+      "label": "Employee cost",
+      "file": "EDA_Employee_Cost.csv",
+      "rows": 0
+    },
+    {
+      "key": "client_summary",
+      "label": "Client summary",
+      "file": "EDA_Client_Summary.csv",
+      "rows": 972
+    },
+    {
+      "key": "people_summary",
+      "label": "People summary",
+      "file": "EDA_People_Summary.csv",
+      "rows": 102
+    }
+  ],
+  "quality": [
+    {
+      "check": "Unallocated internal hours",
+      "category": "Allocation",
+      "severity": "high",
+      "count": 4,
+      "value": "347.10",
+      "detail": "Internal time with no usable project or TL portfolio; parked in the Unallocated bucket"
+    },
+    {
+      "check": "Duplicate project rows merged",
+      "category": "Revenue",
+      "severity": "medium",
+      "count": 1816,
+      "value": "4398812.03",
+      "detail": "1582 project names appeared on multiple rows; summing rather than first-wins recovers 205,252.00 on projects with logged hours"
+    },
+    {
+      "check": "Project names spanning multiple clients",
+      "category": "Revenue",
+      "severity": "medium",
+      "count": 90,
+      "value": "0.00",
+      "detail": "Same project name mapped to more than one client_legal_name"
+    },
+    {
+      "check": "Projects with zero contract revenue",
+      "category": "Revenue",
+      "severity": "medium",
+      "count": 296,
+      "value": "0.00",
+      "detail": "Hours logged against projects whose amount is 0"
+    },
+    {
+      "check": "Revenue on deleted projects",
+      "category": "Revenue",
+      "severity": "high",
+      "count": 7,
+      "value": "16039.73",
+      "detail": "In-window revenue attached to projects flagged deleted"
+    },
+    {
+      "check": "Revenue on future projects",
+      "category": "Revenue",
+      "severity": "medium",
+      "count": 97,
+      "value": "147452.40",
+      "detail": "In-window revenue attached to projects not yet started"
+    },
+    {
+      "check": "Timesheet people missing from employee master",
+      "category": "People",
+      "severity": "high",
+      "count": 3,
+      "value": "0.00",
+      "detail": "Anand Verma, Anuj Sankhe, Soham Rajhans"
+    },
+    {
+      "check": "Reporting line matched by name, not email",
+      "category": "People",
+      "severity": "low",
+      "count": 221,
+      "value": "163.92",
+      "detail": "Timesheet email missing from the master, so the reporting line came from a name match"
+    },
+    {
+      "check": "Timesheet rows with no reporting line",
+      "category": "People",
+      "severity": "medium",
+      "count": 199,
+      "value": "256.68",
+      "detail": "No reporting line could be resolved by email or by name"
+    },
+    {
+      "check": "Projects with revenue period mismatch",
+      "category": "Revenue",
+      "severity": "high",
+      "count": 1409,
+      "value": "2162360.46",
+      "detail": "Hours logged in window but the contract window does not overlap, or has no dates"
+    }
+  ],
+  "unallocated_variants": {
+    "with_department": {
+      "file": "EDA_Unallocated_Hours.csv",
+      "count": 4,
+      "hours": 347.1
+    },
+    "without_department": {
+      "file": "EDA_Unallocated_Hours_no_dept.csv",
+      "count": 12,
+      "hours": 1532.683334,
+      "detail": "Base unallocated register plus employees whose internal was previously spread by the department pool."
+    }
+  }
+}

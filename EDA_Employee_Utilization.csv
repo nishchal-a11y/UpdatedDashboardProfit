@@ -1,0 +1,103 @@
+employee,email,department,reporting_to,tl_source,in_employee_master,client_hours,internal_hours,allocated_out_hours,unallocated_hours,total_logged_hours,utilization_pct,internal_pct,projects_touched,timesheet_entries,nonapproved_hours,nonworking_hours,annual_package,window_cost,cost_per_hour_absorption,cost_per_hour_standard,cost_source
+ARYAMOL C P,aryamol@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,122.706111,24.333333,24.333333,0.000000,147.039444,83.45,16.55,26,169,0.000000,0.000000,,,,,no cost file
+Aakarsh R,aakarsh@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,112.500000,37.000000,37.000000,0.000000,149.500000,75.25,24.75,7,171,0.000000,0.000000,,,,,no cost file
+Aarju Khasgiwala,aarju@finanshels.com,Finance Operations,GAUTAM SANOJ,Email match,yes,0.000000,162.000000,162.000000,0.000000,162.000000,0.00,100.00,0,20,0.000000,0.000000,,,,,no cost file
+Abdul Afeef,afeef@finanshels.com,Tax,Shamna P K,Email match,yes,0.000000,160.000000,160.000000,0.000000,160.000000,0.00,100.00,0,21,0.000000,0.000000,,,,,no cost file
+Abhinand CP,abhinand@finanshels.com,HR & TA,Brijen Prakash Brahmbhatt,Email match,yes,0.000000,111.666667,0.000000,111.666667,111.666667,0.00,100.00,0,89,111.666667,0.000000,,,,,no cost file
+Ajnas k,ajnas@finanshels.com,Finance Operations,Bhagyalakshmi KP,Email match,yes,44.166667,107.833333,107.833333,0.000000,152.000000,29.06,70.94,8,86,0.000000,0.000000,,,,,no cost file
+Akash Jaiswal,akash@finanshels.com,Tax,ABDUL AFEEF,Email match,yes,102.333333,57.666667,57.666667,0.000000,160.000000,63.96,36.04,75,173,0.000000,0.000000,,,,,no cost file
+Aleena Cyriac Manimala,alenna@finanshels.com,Finance Operations,Mukesh Vaidya,Name match,yes,50.516667,113.400000,113.400000,0.000000,163.916667,30.82,69.18,8,221,0.000000,0.000000,,,,,no cost file
+Aleena Joseph,aleena@finanshels.com,Finance Operations,Anuj Sharma,Email match,yes,126.583333,25.750000,25.750000,0.000000,152.333333,83.10,16.90,25,194,0.000000,0.000000,,,,,no cost file
+Amal Ganesh,amalgs@finanshels.com,Tax,ABDUL AFEEF,Email match,yes,82.000000,66.500000,66.500000,0.000000,148.500000,55.22,44.78,59,109,0.000000,0.000000,,,,,no cost file
+Amal John,amaljohn@finanshels.com,Finance Operations,SYED ZAIN AHMED,Email match,yes,29.083333,122.916667,122.916667,0.000000,152.000000,19.13,80.87,10,141,0.000000,0.000000,,,,,no cost file
+Anand Verma,anand@finanshels.com,,,No match,no,92.916667,35.250000,35.250000,0.000000,128.166667,72.50,27.50,13,130,0.000000,0.000000,,,,,no cost file
+Anantha BS,anantha@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,141.416667,5.250000,5.250000,0.000000,146.666667,96.42,3.58,2,67,0.000000,0.000000,,,,,no cost file
+Anita Kumawat,anita@finanshels.com,Finance Operations,Devanshi Bimalkumar Panchal,Email match,yes,29.916667,114.083333,114.083333,0.000000,144.000000,20.78,79.22,5,83,0.000000,0.000000,,,,,no cost file
+Ankit Dey,ankit@finanshels.com,Finance Operations,Darshit Lodaya,Email match,yes,44.962778,111.750000,111.750000,0.000000,156.712778,28.69,71.31,27,145,0.000000,0.000000,,,,,no cost file
+Anuj Sankhe,anuj@finanshels.com,,,No match,no,45.500000,42.500000,42.500000,0.000000,88.000000,51.70,48.30,6,49,0.000000,0.000000,,,,,no cost file
+Anuj Sharma,anujsharma@finanshels.com,Finance Operations,Dhaval Dave,Email match,yes,25.750000,121.166667,121.166667,0.000000,146.916667,17.53,82.47,28,224,0.000000,0.000000,,,,,no cost file
+Anusree P C,anusree@finanshels.com,HR & TA,Brijen Prakash Brahmbhatt,Email match,yes,0.000000,145.416667,0.000000,145.416667,145.416667,0.00,100.00,0,101,145.416667,0.000000,,,,,no cost file
+Arjun Krishn M,arjunkirshn@finanshels.com,Finance Operations,Anuj Sharma,Email match,yes,61.500000,95.000000,95.000000,0.000000,156.500000,39.30,60.70,10,124,0.000000,0.000000,,,,,no cost file
+Arshiya Siddiq Chikte,arshiya@finanshels.com,Tax,NAFILA A R,Email match,yes,123.000000,45.000000,45.000000,0.000000,168.000000,73.21,26.79,50,137,0.000000,0.000000,,,,,no cost file
+Arya A,arya@finanshels.com,Sales,Aarju Nitinchandra Khasgiwala,Email match,yes,59.000000,87.000000,87.000000,0.000000,146.000000,40.41,59.59,34,119,0.000000,0.000000,,,,,no cost file
+Aryanandhana PK,aryanandhana@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,132.729722,26.916667,26.916667,0.000000,159.646389,83.14,16.86,29,158,0.000000,0.000000,,,,,no cost file
+Ashish Agarwal,ashishagarwal@finanshels.com,Finance Operations,Devanshi Bimalkumar Panchal,Email match,yes,84.500000,51.500000,51.500000,0.000000,136.000000,62.13,37.87,8,51,0.000000,0.000000,,,,,no cost file
+Aswin KD,aswinkd@finanshels.com,Finance Operations,Bhagyalakshmi KP,Email match,yes,71.916667,73.166667,73.166667,0.000000,145.083333,49.57,50.43,3,20,0.000000,0.000000,,,,,no cost file
+Bhagyalakshmi KP,bhagyalakshmi@finanshels.com,Finance Operations,Dhaval Dave,Email match,yes,1.000000,149.000000,149.000000,0.000000,150.000000,0.67,99.33,2,49,8.000000,0.000000,,,,,no cost file
+Bharathy Shibini,bharathy@finanshels.com,Finance Operations,Anuj Sharma,Email match,yes,0.000000,144.000000,144.000000,0.000000,144.000000,0.00,100.00,0,125,0.000000,0.000000,,,,,no cost file
+Bijin Jimmy,bijin@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,132.005833,20.666667,20.666667,0.000000,152.672500,86.46,13.54,30,161,0.000000,0.000000,,,,,no cost file
+Devanshi Panchal,devanshi@finanshels.com,Finance Operations,GAUTAM SANOJ,Email match,yes,6.000000,140.166667,140.166667,0.000000,146.166667,4.10,95.90,3,89,0.000000,0.000000,,,,,no cost file
+Divya Bothra,divya.b@finanshels.com,Finance Operations,Anuj Sharma,Email match,yes,83.083333,71.250000,71.250000,0.000000,154.333333,53.83,46.17,18,121,4.500000,0.000000,,,,,no cost file
+Divya Mangtani,divyamangtani@finanshels.com,HR & TA,Brijen Prakash Brahmbhatt,Email match,yes,0.000000,49.500000,0.000000,49.500000,49.500000,0.00,100.00,0,38,35.500000,0.000000,,,,,no cost file
+Fathima Hiba,fathimahiba@finanshels.com,Tax,NAFILA A R,Email match,yes,79.666667,72.333333,72.333333,0.000000,152.000000,52.41,47.59,45,139,0.000000,0.000000,,,,,no cost file
+Fathimathul Shafna T,fathimathulshafna@finanshels.com,Finance Operations,Bhagyalakshmi KP,Email match,yes,0.093889,145.200000,145.200000,0.000000,145.293889,0.06,99.94,1,89,0.000000,0.000000,,,,,no cost file
+Firdous Jehan,firdous@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,0.000000,160.000000,160.000000,0.000000,160.000000,0.00,100.00,0,161,0.000000,0.000000,,,,,no cost file
+Gayathri Anand,gayathrianand@finanshels.com,Tax,SANTO .,Email match,yes,0.000000,152.000000,152.000000,0.000000,152.000000,0.00,100.00,0,27,0.000000,0.000000,,,,,no cost file
+Gopika K,gopika@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,79.416667,85.166667,85.166667,0.000000,164.583333,48.25,51.75,20,200,0.000000,0.000000,,,,,no cost file
+Hajra Osman,hajra@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,38.916667,105.083333,105.083333,0.000000,144.000000,27.03,72.97,10,145,0.000000,0.000000,,,,,no cost file
+Hiba Sherin,hiba@finanshels.com,Finance Operations,Aarju Nitinchandra Khasgiwala,Email match,yes,104.000000,44.000000,44.000000,0.000000,148.000000,70.27,29.73,14,112,0.000000,0.000000,,,,,no cost file
+Hitesh Mathur,hitesh@finanshels.com,Finance Operations,Jasmeet Singh Monga,Email match,yes,61.083333,112.000000,112.000000,0.000000,173.083333,35.29,64.71,67,209,0.000000,0.000000,,,,,no cost file
+Hritheesh Mohan,hritheesh.mohan@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,81.500000,74.533333,74.533333,0.000000,156.033333,52.23,47.77,37,283,0.000000,0.000000,,,,,no cost file
+Jayesh Kriplani,jayesh@finanshels.com,Finance,Shahul Mohammed,Email match,yes,137.763889,7.002778,7.002778,0.000000,144.766667,95.16,4.84,3,107,137.825833,0.000000,,,,,no cost file
+Jerlin Rakshana,jerlin@finanshels.com,Tax,NAFILA A R,Email match,yes,0.000000,157.000000,157.000000,0.000000,157.000000,0.00,100.00,0,92,0.000000,0.000000,,,,,no cost file
+Jithin Radhakrishnan,jithin@finanshels.com,Finance Operations,SANTO .,Email match,yes,0.000000,54.750000,54.750000,0.000000,54.750000,0.00,100.00,0,21,0.000000,0.000000,,,,,no cost file
+Jyolsana M S,jyolsana@finanshels.com,Tax,ABDUL AFEEF,Email match,yes,58.500000,85.500000,85.500000,0.000000,144.000000,40.62,59.38,56,133,0.000000,0.000000,,,,,no cost file
+Jyoti Patil,jyoti@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,133.000000,34.750000,34.750000,0.000000,167.750000,79.28,20.72,4,151,0.000000,0.000000,,,,,no cost file
+Kiran Sebastian,kiran@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,129.500000,22.500000,22.500000,0.000000,152.000000,85.20,14.80,13,99,0.000000,0.000000,,,,,no cost file
+Kirti Patel,kirtipatel@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,125.583333,36.500000,36.500000,0.000000,162.083333,77.48,22.52,5,183,0.000000,0.000000,,,,,no cost file
+Konduru Sudhakar,konduru@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,102.516667,50.633333,50.633333,0.000000,153.150000,66.94,33.06,18,136,0.000000,0.000000,,,,,no cost file
+Krishna Subash,krishna@finanshels.com,Compliance,SUHAIL KANJIRATHPARAMB YOUSEF,Email match,yes,28.055833,122.883333,122.883333,0.000000,150.939167,18.59,81.41,18,157,0.000000,0.000000,,,,,no cost file
+Lamiya Thesni,lamiya@finanshels.com,Finance Operations,SYED ZAIN AHMED,Email match,yes,129.666667,34.383333,34.383333,0.000000,164.050000,79.04,20.96,26,162,0.000000,0.000000,,,,,no cost file
+Lisha Jose,lisha@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,82.250000,61.750000,61.750000,0.000000,144.000000,57.12,42.88,6,167,0.000000,0.000000,,,,,no cost file
+Maitali Agrawal,maitali@finanshels.com,Finance Operations,Anuj Sharma,Email match,yes,48.166667,104.416667,104.416667,0.000000,152.583333,31.57,68.43,10,123,0.000000,0.000000,,,,,no cost file
+Manav Wadhwa,manav@finanshels.com,Tax,ABDUL AFEEF,Email match,yes,0.000000,160.000000,160.000000,0.000000,160.000000,0.00,100.00,0,32,0.000000,0.000000,,,,,no cost file
+Monisha Jaganathan,monisha@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,0.000000,172.333333,172.333333,0.000000,172.333333,0.00,100.00,0,171,8.000000,0.000000,,,,,no cost file
+Moonisa Fayaz,moonisa@finanshels.com,Tax,NAFILA A R,Email match,yes,95.666667,60.333333,60.333333,0.000000,156.000000,61.32,38.68,63,176,0.000000,0.000000,,,,,no cost file
+Muhammad Hafis,hafis@finanshels.com,Tax,ABDUL AFEEF,Email match,yes,128.750000,13.750000,13.750000,0.000000,142.500000,90.35,9.65,108,154,0.000000,0.000000,,,,,no cost file
+Muhammed Jaseel,jaseel@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,113.666667,49.733333,49.733333,0.000000,163.400000,69.56,30.44,2,243,0.000000,0.000000,,,,,no cost file
+Muhammed Mubajjil,mubajjil@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,107.583333,36.333333,36.333333,0.000000,143.916667,74.75,25.25,27,169,0.000000,0.000000,,,,,no cost file
+Muhammed Shamil K,shamilmuhammed@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,111.833333,42.166667,42.166667,0.000000,154.000000,72.62,27.38,9,85,0.000000,0.000000,,,,,no cost file
+Mukesh Vaidya,mukesh@finanshels.com,Finance Operations,Jasmeet Singh Monga,Email match,yes,119.333333,52.166667,52.166667,0.000000,171.500000,69.58,30.42,92,240,0.000000,0.000000,,,,,no cost file
+Munees KV,munees@finanshels.com,Finance Operations,SUHAIL KANJIRATHPARAMB YOUSEF,Email match,yes,0.000000,168.500000,168.500000,0.000000,168.500000,0.00,100.00,0,36,104.000000,0.000000,,,,,no cost file
+Muskan Sonar,muskan@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,136.666667,33.916667,33.916667,0.000000,170.583333,80.12,19.88,33,195,0.000000,0.000000,,,,,no cost file
+NAHAN SHADIL,nahanshadil@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,113.750000,36.083333,36.083333,0.000000,149.833333,75.92,24.08,9,93,0.000000,0.000000,,,,,no cost file
+Nafila AR,nafila@finanshels.com,Tax,GAUTAM SANOJ,Email match,yes,0.000000,163.000000,163.000000,0.000000,163.000000,0.00,100.00,0,31,0.000000,0.000000,,,,,no cost file
+Nafla Fathima,nafla@finanshels.com,Finance Operations,SYED ZAIN AHMED,Email match,yes,125.833333,25.416667,25.416667,0.000000,151.250000,83.20,16.80,33,144,0.000000,0.000000,,,,,no cost file
+Nahan Fathima,nahan@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,0.000000,0.000000,0.000000,0.000000,0.000000,0.00,0.00,0,31,0.000000,0.000000,,,,,no cost file
+Naja Akmal,naja@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,95.666667,52.833333,52.833333,0.000000,148.500000,64.42,35.58,13,78,0.000000,0.000000,,,,,no cost file
+Neeraja Girish,neeraja@finanshels.com,Finance Operations,Aarju Nitinchandra Khasgiwala,Email match,yes,91.750000,54.416667,54.416667,0.000000,146.166667,62.77,37.23,21,90,0.000000,0.000000,,,,,no cost file
+Nida Rashid,nida@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,49.333333,104.666667,104.666667,0.000000,154.000000,32.03,67.97,19,127,5.000000,0.000000,,,,,no cost file
+Nihal Muhammed,nihal@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,120.200000,16.033333,16.033333,0.000000,136.233333,88.23,11.77,5,218,0.000000,0.000000,,,,,no cost file
+Nisin c,nisin@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,110.916667,37.083333,37.083333,0.000000,148.000000,74.94,25.06,10,128,0.000000,0.000000,,,,,no cost file
+Pratheeksha Bhandary,pratheeksha@finanshels.com,Finance Operations,Mukesh Vaidya,Email match,yes,157.083333,22.500000,22.500000,0.000000,179.583333,87.47,12.53,29,100,0.000000,0.000000,,,,,no cost file
+Preity Toshniwal,preity@finanshels.com,Finance Operations,Aarju Nitinchandra Khasgiwala,Email match,yes,90.500000,69.500000,69.500000,0.000000,160.000000,56.56,43.44,18,57,0.000000,0.000000,,,,,no cost file
+Rakavi Vettath,rakavi@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,167.879722,16.333333,16.333333,0.000000,184.213056,91.13,8.87,32,130,0.000000,0.000000,,,,,no cost file
+Ridhika Tiwari,ridhika@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,129.850833,31.366667,31.366667,0.000000,161.217500,80.54,19.46,37,233,0.000000,0.000000,,,,,no cost file
+Ridul Pramod,ridul@finanshels.com,Finance Operations,Aarju Nitinchandra Khasgiwala,Email match,yes,100.000000,60.000000,60.000000,0.000000,160.000000,62.50,37.50,35,96,0.000000,0.000000,,,,,no cost file
+Rishal Muhammed,rishal@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,155.166667,6.416667,6.416667,0.000000,161.583333,96.03,3.97,4,200,0.000000,0.000000,,,,,no cost file
+SISINA PS,sisina@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,113.945000,30.350000,30.350000,0.000000,144.295000,78.97,21.03,22,138,0.000000,0.000000,,,,,no cost file
+Sajal Farkya,sajal@finanshels.com,Finance Operations,HITESH MATHUR,Email match,yes,114.083333,30.083333,30.083333,0.000000,144.166667,79.13,20.87,27,126,0.000000,0.000000,,,,,no cost file
+Saloni Badiyani,saloni@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,120.416667,43.433333,43.433333,0.000000,163.850000,73.49,26.51,4,159,0.000000,0.000000,,,,,no cost file
+Samiksha Agrawal,samiksha@finanshels.com,Finance Operations,SYED ZAIN AHMED,Email match,yes,107.500000,49.333333,49.333333,0.000000,156.833333,68.54,31.46,24,91,0.000000,0.000000,,,,,no cost file
+Satyam Malviya,satyam@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,106.416667,39.833333,39.833333,0.000000,146.250000,72.76,27.24,9,71,0.000000,0.000000,,,,,no cost file
+Shada Backer,shada@finanshels.com,Tax,NAFILA A R,Email match,yes,58.583333,69.583333,69.583333,0.000000,128.166667,45.71,54.29,46,162,0.000000,0.000000,,,,,no cost file
+Shahil Abdul Nasser,shahil@finanshels.com,Finance Operations,SYED ZAIN AHMED,Email match,yes,120.250000,42.750000,42.750000,0.000000,163.000000,73.77,26.23,18,139,0.000000,0.000000,,,,,no cost file
+Shalini Saboo,shalini@finanshels.com,Finance Operations,Bhagyalakshmi KP,Email match,yes,49.333333,103.416667,103.416667,0.000000,152.750000,32.30,67.70,13,76,0.000000,0.000000,,,,,no cost file
+Shamna Pk,shamna@finanshels.com,Tax,NAFILA A R,Email match,yes,0.000000,152.233333,152.233333,0.000000,152.233333,0.00,100.00,0,49,0.000000,0.000000,,,,,no cost file
+Sharan Kumar,sharan@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,0.000000,150.000000,150.000000,0.000000,150.000000,0.00,100.00,0,152,0.000000,0.000000,,,,,no cost file
+Shazla Aysha,shazla@finanshels.com,Tax,NAFILA A R,Email match,yes,58.416667,94.333333,94.333333,0.000000,152.750000,38.24,61.76,59,201,0.000000,0.000000,,,,,no cost file
+Shibila P S,shibila@finanshels.com,Finance Operations,Bhagyalakshmi KP,Email match,yes,37.816667,111.733333,111.733333,0.000000,149.550000,25.29,74.71,3,73,0.000000,0.000000,,,,,no cost file
+Shivam Chawla,shivamchawla@finanshels.com,Finance Operations,Shrooti Sharma,Email match,yes,142.500000,30.500000,30.500000,0.000000,173.000000,82.37,17.63,13,81,8.000000,0.000000,,,,,no cost file
+Shrooti Sharma,shrooti@finanshels.com,Finance Operations,Jaydeep Jayant Khamkar,Email match,yes,79.333333,73.750000,73.750000,0.000000,153.083333,51.82,48.18,25,149,0.000000,0.000000,,,,,no cost file
+Shrushti Poojari,shrusti@finanshels.com,Tax,NAFILA A R,Email match,yes,86.166667,92.183333,92.183333,0.000000,178.350000,48.31,51.69,60,174,4.466667,0.000000,,,,,no cost file
+Simanti Sarkar,simanti@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,0.000000,168.000000,168.000000,0.000000,168.000000,0.00,100.00,0,89,0.000000,0.000000,,,,,no cost file
+Sinan Mohammed,sinan@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,84.833333,64.666667,64.666667,0.000000,149.500000,56.74,43.26,10,101,0.000000,0.000000,,,,,no cost file
+Soham Rajhans,soham@finanshels.com,,,No match,no,0.000000,40.516667,0.000000,40.516667,40.516667,0.00,100.00,0,20,6.516667,0.000000,,,,,no cost file
+Sruthy K,sruthy@finanshels.com,Tax,ABDUL AFEEF,Email match,yes,46.000000,106.000000,106.000000,0.000000,152.000000,30.26,69.74,38,115,0.000000,0.000000,,,,,no cost file
+Suvetha S,suvetha@finanshels.com,Finance Operations,SYED ZAIN AHMED,Email match,yes,109.083333,38.916667,38.916667,0.000000,148.000000,73.70,26.30,23,117,0.000000,0.000000,,,,,no cost file
+Syed Zain Ahmed,syed@finanshels.com,Finance Operations,Jasmeet Singh Monga,Email match,yes,147.333333,62.916667,62.916667,0.000000,210.250000,70.08,29.92,55,146,10.000000,0.000000,,,,,no cost file
+Tanima Das,tanima@finanshels.com,Compliance,Krishna Subash Nair,Email match,yes,83.511667,64.500000,64.500000,0.000000,148.011667,56.42,43.58,14,127,0.000000,0.000000,,,,,no cost file
+Tina Patidar,tina@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,124.592222,31.750000,31.750000,0.000000,156.342222,79.69,20.31,15,133,0.000000,0.000000,,,,,no cost file
+Varsha Soni,varsha@finanshels.com,Finance,Shahul Mohammed,Email match,yes,148.659167,0.000000,0.000000,0.000000,148.659167,100.00,0.00,8,61,141.776667,0.000000,,,,,no cost file
+Vishakha Mittal,vishakha@finanshels.com,Finance Operations,Ankit Dey,Email match,yes,143.811944,9.633333,9.633333,0.000000,153.445278,93.72,6.28,7,124,0.000000,0.000000,,,,,no cost file
+adithyan k,adithyan@finanshels.com,Finance,Bhagyalakshmi KP,Email match,yes,0.000000,160.000000,160.000000,0.000000,160.000000,0.00,100.00,0,31,0.000000,0.000000,,,,,no cost file
