@@ -146,15 +146,16 @@ else:
 
 The full-recognition branch is deliberate: hours were logged against that project inside the window, so the work demonstrably happened even though the contract dates do not say so. Those projects are all listed in the "Projects with revenue period mismatch" register so the assumption stays visible and auditable.
 
-**Revenue attribution to rows.** Revenue lives once per project. A row's share is its share of that project's hours, and the denominator is every row of the project, not just the rows a filter leaves on screen:
+**Revenue attribution to rows.** Revenue lives once per project. A row's share is its share of that project's hours. The denominator is every project row, except when an allocation method is selected, when it is the hours for that method:
 
 ```
-row revenue = project in-window revenue × row hours / all hours of that project
+row revenue = project in-window revenue × row hours / eligible project hours
+eligible project hours = all project hours, or selected-method hours when filtered by method
 ```
 
-Unfiltered, every grouping — by client, project, team lead, person, service, status — totals to the same revenue figure. Filtered, the view carries the revenue attributable to the hours it still shows, so revenue, revenue per hour and margin all move with the filter set.
+Unfiltered, every grouping — by client, project, team lead, person, service, status — totals to the same revenue figure. Selecting an allocation method keeps the full revenue for each represented project; hours and cost change with the selected method, so profit and margin reflect that method's delivery cost. Other row-level filters, such as person, service or search, continue to carry only the revenue attributable to the hours they show.
 
-> **Project-level filters keep full revenue.** Client, status, frequency and revenue type are project attributes, so filtering on them keeps or drops whole projects and their revenue with them. Row-level filters — person, service, allocation method, hours basis, search — cut into a project, and revenue scales down with the hours removed.
+> **Project-level filters keep full revenue.** Client, status, frequency and revenue type are project attributes, so filtering on them keeps or drops whole projects and their revenue with them. Allocation method is also revenue-preserving for represented projects. Person, service and search filters cut into a project, and revenue scales down with the hours removed.
 
 ### Cost, profit and margin
 

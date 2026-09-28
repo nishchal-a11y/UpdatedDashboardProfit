@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22T16:51:09",
+  "generated_at": "2026-09-28T12:34:42",
   "window": {
     "start": "2026-08-01",
     "end": "2026-08-31",
@@ -94,8 +94,8 @@
     "eda_rows": 8548
   },
   "revenue_basis_mix": {
-    "Undated full": 414,
     "Out-of-window full": 995,
+    "Undated full": 414,
     "Prorated": 178
   },
   "allocation_method_hours": {

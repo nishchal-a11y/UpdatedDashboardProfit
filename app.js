@@ -350,17 +350,16 @@ function matchesFilters(fact) {
 let revenueBaseCache = { key: null, hours: null, counts: null };
 
 /**
- * Per-project hour totals across every row of the project, filters ignored.
- * Using an unfiltered denominator keeps a row's revenue share fixed, so a
- * filtered view carries the revenue attributable to the hours it shows instead
- * of re-inflating each project back to its full contract value.
+ * Per-project hour totals used to attribute revenue. Method is the exception
+ * to the usual filter-independent denominator: selecting a method changes
+ * hours and cost, but must not remove any revenue from a represented project.
  */
 function projectRevenueBase() {
-  const key = `${state.filters.deptAllocation}|${state.filters.hoursBasis}`;
+  const key = `${state.filters.deptAllocation}|${state.filters.hoursBasis}|${state.filters.method}`;
   if (revenueBaseCache.key === key) return revenueBaseCache;
   const hours = new Map();
   const counts = new Map();
-  activeFacts().forEach((fact) => {
+  activeFacts().filter((fact) => state.filters.method === 'all' || fact.method === state.filters.method).forEach((fact) => {
     hours.set(fact.projectId, (hours.get(fact.projectId) || 0) + factHours(fact));
     counts.set(fact.projectId, (counts.get(fact.projectId) || 0) + 1);
   });
@@ -369,10 +368,10 @@ function projectRevenueBase() {
 }
 
 /**
- * Filtered rows, each carrying its share of the parent project's revenue.
- * Attribution is by share of the project's total hours, so an unfiltered view
- * reconciles to full revenue on every grouping dimension and a filtered view
- * scales revenue with the hours it keeps.
+ * Filtered rows, each carrying their share of the parent project's revenue.
+ * Revenue is spread over all project hours, or only the selected method's
+ * hours, so method filters change hours and cost without dropping revenue.
+ * Other row-level filters continue to scale revenue to the hours they retain.
  */
 function visibleRows() {
   const rows = activeFacts().filter(matchesFilters);
