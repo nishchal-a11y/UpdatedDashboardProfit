@@ -23,7 +23,8 @@ ALLOWED_FILES = {
     "projects": ("Projects.csv", {".csv"}),
     "timesheet": ("TimeSheet_Row_data.csv", {".csv"}),
     "employees": ("All Employees - Finanshels.com.xlsx", {".xlsx"}),
-    "package": ("Employee_Annual_Package", {".csv", ".xlsx"}),
+    "payroll": ("All Employees Month-on-Month YTD Report_Jan 2026 - Aug 2026 _.xlsx", {".xlsx"}),
+    "revisions": ("Emp_Salary_Revisions_Finanshels.com_.xlsx", {".xlsx"}),
 }
 NO_STORE = {".csv", ".json", ".js", ".css", ".html"}
 
@@ -119,17 +120,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 raise UploadError(f"{filename} must be one of {', '.join(sorted(extensions))}.")
             if not payload:
                 raise UploadError(f"{filename} is empty.")
-            # The package slot accepts either format, so it keeps the uploaded extension.
-            destination = ROOT / (f"{target}{suffix}" if field == "package" else target)
-            pending.append((field, target, extensions, destination, payload))
+            pending.append((field, target, extensions, ROOT / target, payload))
 
         replaced = []
         for field, target, extensions, destination, payload in pending:
-            if field == "package":
-                for extension in extensions:
-                    stale = ROOT / f"{target}{extension}"
-                    if stale != destination and stale.exists():
-                        stale.unlink()
             destination.write_bytes(payload)
             replaced.append(destination.name)
         return replaced, window

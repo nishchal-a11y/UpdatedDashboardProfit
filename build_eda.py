@@ -1,17 +1,18 @@
 """Build the project profitability EDA datasets from the raw source files.
 
-Reads Projects.csv, TimeSheet_Row_data.csv, the employee master workbook and an
-optional employee annual package file, and writes a set of EDA CSVs plus a
+Reads Projects.csv, TimeSheet_Row_data.csv, the employee master workbook,
+monthly payroll, and salary revisions, then writes EDA CSVs plus a
 manifest describing the timesheet window and every data quality counter.
 """
 
 import argparse
+import calendar
 import csv
 import json
 import re
 import zipfile
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -23,7 +24,9 @@ NAMESPACE = {"m": SHEET_NS}
 PROJECTS_FILE = "Projects.csv"
 TIMESHEET_FILE = "TimeSheet_Row_data.csv"
 EMPLOYEES_FILE = "All Employees - Finanshels.com.xlsx"
-PACKAGE_FILES = ("Employee_Annual_Package.csv", "Employee_Annual_Package.xlsx")
+PAYROLL_FILE = "All Employees Month-on-Month YTD Report_Jan 2026 - Aug 2026 _.xlsx"
+SALARY_REVISIONS_FILE = "Emp_Salary_Revisions_Finanshels.com_.xlsx"
+INR_TO_AED = 0.042
 
 OUT_PROJECT_HOURS = "EDA_Project_Hours.csv"
 OUT_EMPLOYEE_UTILISATION = "EDA_Employee_Utilization.csv"
@@ -35,13 +38,13 @@ OUT_DATA_QUALITY = "EDA_Data_Quality.csv"
 OUT_SERVICE_MIX = "EDA_Service_Mix.csv"
 OUT_ALLOCATION_AUDIT = "EDA_Allocation_Audit.csv"
 OUT_EMPLOYEE_COST = "EDA_Employee_Cost.csv"
+OUT_SALARY_REVISIONS = "EDA_Salary_Revisions.csv"
+OUT_PAYROLL_COST_MONTHLY = "EDA_Payroll_Cost_Monthly.csv"
 OUT_CLIENT_SUMMARY = "EDA_Client_Summary.csv"
 OUT_PEOPLE_SUMMARY = "EDA_People_Summary.csv"
 OUT_MANIFEST = "EDA_Manifest.json"
 
 UNALLOCATED_ID = "__unallocated__"
-DEFAULT_ANNUAL_HOURS = 2080
-
 # Highest priority wins when duplicate project rows disagree on status.
 STATUS_PRIORITY = ["current", "overdue", "next_month", "on-hold", "completed", "future", "archived", "deleted"]
 
@@ -186,40 +189,6 @@ def read_employees():
     return rows_to_dicts(rows, find_header_row(rows, ("full name", "email")))
 
 
-def read_package_file():
-    """Optional annual package source. Column names are matched by keyword."""
-    for name in PACKAGE_FILES:
-        path = ROOT / name
-        if not path.exists():
-            continue
-        if path.suffix.casefold() == ".csv":
-            records = read_csv(name)
-        else:
-            rows = read_xlsx_rows(path)
-            records = rows_to_dicts(rows, find_header_row(rows, ("email", "package", "ctc", "salary", "name")))
-        if records:
-            return name, records
-    return None, []
-
-
-def resolve_package_columns(records):
-    headers = [header for header in records[0].keys() if clean_text(header)]
-    lowered = {header: clean_text(header).casefold() for header in headers}
-
-    def pick(patterns, exclude=()):
-        for pattern in patterns:
-            for header in headers:
-                text = lowered[header]
-                if pattern in text and not any(bad in text for bad in exclude):
-                    return header
-        return None
-
-    email = pick(("email", "mail"))
-    name = pick(("full name", "employee name", "name"), exclude=("company", "legal"))
-    package = pick(("annual package", "annual ctc", "annual", "package", "ctc", "gross", "salary", "cost"))
-    return email, name, package
-
-
 # --------------------------------------------------------------------------- lookups
 
 
@@ -233,6 +202,7 @@ def employee_lookups(employees):
         entry = {
             "name": name,
             "email": clean_email(employee.get("Email")),
+            "employee_number": clean_text(employee.get("Employee Number")),
             "reporting_to": clean_text(employee.get("Reporting To")),
             "department": clean_text(employee.get("Department")),
             "job_title": clean_text(employee.get("Job Title")),
@@ -243,6 +213,63 @@ def employee_lookups(employees):
         if key and key not in by_name:
             by_name[key] = entry
     return by_email, by_name
+
+
+def excel_serial_date(value):
+    """Convert an Excel date serial to a calendar date."""
+    number = parse_number(value)
+    return (datetime(1899, 12, 30) + timedelta(days=number)).date() if number else None
+
+
+def read_payroll_records():
+    path = ROOT / PAYROLL_FILE
+    if not path.exists():
+        return []
+    rows = read_xlsx_rows(path)
+    records = rows_to_dicts(rows, find_header_row(rows, ("employee name", "payroll month", "total")))
+    result = []
+    for record in records:
+        headers = {clean_text(key).casefold(): key for key in record}
+        employee_name = clean_text(record.get(headers.get("employee name", "")))
+        payroll_month = clean_text(record.get(headers.get("payroll month", "")))
+        if not employee_name or not payroll_month or payroll_month.casefold() == "totals":
+            continue
+        try:
+            month = datetime.strptime(payroll_month, "%b - %Y").date().replace(day=1)
+        except ValueError:
+            continue
+        result.append({
+            "employee_id": clean_text(record.get(headers.get("employee number", ""))),
+            "employee": employee_name,
+            "month": month,
+            "total_inr": parse_number(record.get(headers.get("total", ""))),
+        })
+    return result
+
+
+def read_salary_revisions():
+    path = ROOT / SALARY_REVISIONS_FILE
+    if not path.exists():
+        return []
+    rows = read_xlsx_rows(path)
+    records = rows_to_dicts(rows, find_header_row(rows, ("employee name", "previous regular salary", "effective from")))
+    result = []
+    for record in records:
+        headers = {clean_text(key).casefold(): key for key in record}
+        employee_name = clean_text(record.get(headers.get("employee name", "")))
+        employee_id = clean_text(record.get(headers.get("employee number", "")))
+        effective = excel_serial_date(record.get(headers.get("effective from", "")))
+        status = clean_text(record.get(headers.get("approval status", ""))).casefold()
+        if not employee_name or not effective or status != "approved":
+            continue
+        result.append({
+            "employee_id": employee_id,
+            "employee": employee_name,
+            "effective_from": effective,
+            "previous_regular_salary_inr": parse_number(record.get(headers.get("previous regular salary", ""))),
+            "revised_regular_salary_inr": parse_number(record.get(headers.get("revised regular salary", ""))),
+        })
+    return result
 
 
 def status_rank(status):
@@ -401,6 +428,8 @@ def build(requested_window=None):
             "employee": name,
             "employee_key": clean_key(name),
             "email": email,
+            "employee_number": (person or {}).get("employee_number", ""),
+            "employee_master_name": (person or {}).get("name", ""),
             "in_master": person is not None,
             "reporting_to": reporting_to,
             "tl_source": tl_source,
@@ -622,15 +651,17 @@ def build_project_hours(data):
     return rows
 
 
-def build_employee_utilisation(data, cost_by_key):
+def build_employee_utilisation(data, cost_by_key, cost_by_name):
     stats = defaultdict(lambda: {
-        "email": "", "reporting_to": "", "department": "", "in_master": False, "tl_source": "",
+        "email": "", "employee_number": "", "master_name": "", "reporting_to": "", "department": "", "in_master": False, "tl_source": "",
         "client_hours": 0.0, "internal_hours": 0.0, "leave_entries": 0, "entries": 0,
         "nonapproved_hours": 0.0, "nonworking_hours": 0.0, "projects": set(),
     })
     for entry in data["entries"]:
         record = stats[entry["employee"] or "Unknown"]
         record["email"] = record["email"] or entry["email"]
+        record["employee_number"] = record["employee_number"] or entry["employee_number"]
+        record["master_name"] = record["master_name"] or entry["employee_master_name"]
         record["reporting_to"] = record["reporting_to"] or entry["reporting_to"]
         record["tl_source"] = record["tl_source"] or entry["tl_source"]
         record["department"] = record["department"] or entry["department"]
@@ -651,19 +682,29 @@ def build_employee_utilisation(data, cost_by_key):
     for (employee, _email, _reporting, _reason, _in_master), value in data["unallocated_register"].items():
         unallocated_by_employee[employee] += value["hours"]
 
-    fields = ["employee", "email", "department", "reporting_to", "tl_source", "in_employee_master", "client_hours", "internal_hours",
+    fields = ["employee", "employee_number", "email", "department", "reporting_to", "tl_source", "in_employee_master", "client_hours", "internal_hours",
               "allocated_out_hours", "unallocated_hours", "total_logged_hours", "utilization_pct", "internal_pct",
               "projects_touched", "timesheet_entries", "nonapproved_hours", "nonworking_hours",
-              "annual_package", "window_cost", "cost_per_hour_absorption", "cost_per_hour_standard", "cost_source"]
+              "window_cost_inr", "window_cost_aed", "covered_payroll_days", "revision_adjusted_months",
+              "cost_per_hour_absorption", "cost_source"]
     rows = []
     for employee, record in sorted(stats.items()):
         total = record["client_hours"] + record["internal_hours"]
         unallocated = unallocated_by_employee.get(employee, 0.0)
-        cost = cost_by_key.get(clean_key(employee)) or cost_by_key.get(record["email"]) or {}
-        package = cost.get("annual_package", 0.0)
-        window_cost = package * data["window_days"] / 365 if package and data["window_days"] else 0.0
+        payroll_rows = cost_by_key.get(record["employee_number"], [])
+        cost_source = "employee number" if payroll_rows else ""
+        if not payroll_rows:
+            for candidate in (record["master_name"], employee):
+                payroll_rows = cost_by_name.get(clean_key(candidate), [])
+                if payroll_rows:
+                    cost_source = "employee name"
+                    break
+        window_cost_inr, covered_days, revision_adjusted_months = payroll_cost_for_window(
+            payroll_rows, data["window_start"], data["window_end"])
+        window_cost_aed = window_cost_inr * INR_TO_AED
         rows.append({
             "employee": employee,
+            "employee_number": record["employee_number"],
             "email": record["email"],
             "department": record["department"],
             "reporting_to": record["reporting_to"],
@@ -680,11 +721,12 @@ def build_employee_utilisation(data, cost_by_key):
             "timesheet_entries": record["entries"],
             "nonapproved_hours": f"{record['nonapproved_hours']:.6f}",
             "nonworking_hours": f"{record['nonworking_hours']:.6f}",
-            "annual_package": f"{package:.2f}" if package else "",
-            "window_cost": f"{window_cost:.2f}" if package else "",
-            "cost_per_hour_absorption": f"{window_cost / total:.6f}" if package and total else "",
-            "cost_per_hour_standard": f"{package / DEFAULT_ANNUAL_HOURS:.6f}" if package else "",
-            "cost_source": cost.get("source", "unmatched" if data["cost_loaded"] else "no cost file"),
+            "window_cost_inr": f"{window_cost_inr:.2f}" if covered_days else "",
+            "window_cost_aed": f"{window_cost_aed:.2f}" if covered_days else "",
+            "covered_payroll_days": covered_days,
+            "revision_adjusted_months": revision_adjusted_months,
+            "cost_per_hour_absorption": f"{window_cost_aed / total:.6f}" if covered_days and total else "",
+            "cost_source": cost_source if covered_days else "uncovered",
         })
     return fields, rows
 
@@ -943,7 +985,8 @@ PEOPLE_SUMMARY_FIELDS = [
     "top_team_lead", "top_team_lead_hours",
     "client_hours", "internal_hours", "actual_hours", "allocated_hours", "unallocated_hours",
     "total_hours", "delivered_hours", "utilization_pct", "nonapproved_hours",
-    "revenue_share", "revenue_per_delivered_hour", "annual_package", "cost_per_hour_absorption",
+    "revenue_share", "revenue_per_delivered_hour", "window_cost_inr", "window_cost_aed",
+    "revision_adjusted_months", "cost_per_hour_absorption",
 ]
 
 
@@ -1022,7 +1065,9 @@ def build_people_summary(data, project_hours, utilisation_rows):
             "nonapproved_hours": f"{record['nonapproved']:.6f}",
             "revenue_share": f"{revenue_share:.2f}",
             "revenue_per_delivered_hour": f"{revenue_share / delivered:.4f}" if delivered else "0.0000",
-            "annual_package": utilisation["annual_package"],
+            "window_cost_inr": utilisation["window_cost_inr"],
+            "window_cost_aed": utilisation["window_cost_aed"],
+            "revision_adjusted_months": utilisation["revision_adjusted_months"],
             "cost_per_hour_absorption": utilisation["cost_per_hour_absorption"],
         })
     return PEOPLE_SUMMARY_FIELDS, sorted(rows, key=lambda row: -float(row["total_hours"]))
@@ -1039,29 +1084,180 @@ def build_data_quality(data, quality):
 # --------------------------------------------------------------------------- cost
 
 
-def load_costs():
-    name, records = read_package_file()
-    if not records:
-        return {}, {"loaded": False, "file": None, "rows": 0, "matched": 0, "columns": {}}
-    email_column, name_column, package_column = resolve_package_columns(records)
-    if not package_column or not (email_column or name_column):
-        return {}, {"loaded": False, "file": name, "rows": len(records), "matched": 0,
-                    "columns": {"email": email_column, "name": name_column, "package": package_column},
-                    "error": "Could not identify an annual package column and an email or name column."}
-    costs = {}
-    for record in records:
-        package = parse_number(record.get(package_column))
-        if package <= 0:
+def salary_revision_schedule(month, revisions):
+    month_end = date(month.year, month.month, calendar.monthrange(month.year, month.month)[1])
+    applicable = sorted((row for row in revisions if row["effective_from"] <= month_end),
+                        key=lambda row: row["effective_from"])
+    if not applicable:
+        return None
+
+    prior = [row for row in applicable if row["effective_from"] < month]
+    in_month = [row for row in applicable if month <= row["effective_from"] <= month_end]
+    if prior:
+        current_salary = prior[-1]["revised_regular_salary_inr"]
+    elif in_month:
+        current_salary = in_month[0]["previous_regular_salary_inr"]
+    else:
+        return None
+
+    previous_salary = in_month[0]["previous_regular_salary_inr"] if in_month else applicable[-1]["previous_regular_salary_inr"]
+    segments = []
+    cursor = month
+    for revision in in_month:
+        effective = revision["effective_from"]
+        if effective > cursor:
+            segments.append((cursor, effective - timedelta(days=1), current_salary))
+        current_salary = revision["revised_regular_salary_inr"]
+        cursor = effective
+    if cursor <= month_end:
+        segments.append((cursor, month_end, current_salary))
+
+    month_days = (month_end - month).days + 1
+    revised_month_cost = sum(
+        salary / 12 * ((segment_end - segment_start).days + 1) / month_days
+        for segment_start, segment_end, salary in segments
+    )
+    return {
+        "segments": segments,
+        "previous_salary": previous_salary,
+        "revised_salary": current_salary,
+        "previous_month_cost": previous_salary / 12,
+        "revised_month_cost": revised_month_cost,
+        "effective_from": applicable[-1]["effective_from"],
+    }
+
+
+def payroll_month_cost(row, window_start, window_end):
+    month = row["month"]
+    month_end = date(month.year, month.month, calendar.monthrange(month.year, month.month)[1])
+    if not window_start or not window_end:
+        return None
+    overlap_start = max(window_start, month)
+    overlap_end = min(window_end, month_end)
+    if overlap_start > overlap_end:
+        return None
+
+    overlap_days = (overlap_end - overlap_start).days + 1
+    month_days = (month_end - month).days + 1
+    schedule = salary_revision_schedule(month, row.get("salary_revisions", []))
+    previous_month_cost = schedule["previous_month_cost"] if schedule else 0.0
+    revised_month_cost = schedule["revised_month_cost"] if schedule else 0.0
+    tolerance = max(2.0, previous_month_cost * 0.01)
+    revision_applied = bool(schedule
+        and abs(row["total_inr"] - previous_month_cost) <= tolerance
+        and abs(revised_month_cost - previous_month_cost) > 0.01)
+
+    if revision_applied:
+        cost = sum(
+            salary / 12 * ((min(overlap_end, segment_end) - max(overlap_start, segment_start)).days + 1) / month_days
+            for segment_start, segment_end, salary in schedule["segments"]
+            if max(overlap_start, segment_start) <= min(overlap_end, segment_end)
+        )
+        calculated_month_cost = revised_month_cost
+    else:
+        cost = row["total_inr"] * overlap_days / month_days
+        calculated_month_cost = row["total_inr"]
+
+    return {
+        "cost_inr": cost,
+        "covered_days": overlap_days,
+        "revision_applied": revision_applied,
+        "calculated_month_cost_inr": calculated_month_cost,
+        "schedule": schedule,
+    }
+
+
+def payroll_cost_for_window(payroll_rows, window_start, window_end):
+    cost = 0.0
+    covered_days = 0
+    adjusted_months = 0
+    for row in payroll_rows:
+        result = payroll_month_cost(row, window_start, window_end)
+        if not result:
             continue
-        entry = {"annual_package": package, "source": name}
-        email = clean_email(record.get(email_column)) if email_column else ""
-        person = clean_key(record.get(name_column)) if name_column else ""
-        if email:
-            costs.setdefault(email, entry)
-        if person:
-            costs.setdefault(person, entry)
-    return costs, {"loaded": True, "file": name, "rows": len(records), "matched": 0,
-                   "columns": {"email": email_column, "name": name_column, "package": package_column}}
+        cost += result["cost_inr"]
+        covered_days += result["covered_days"]
+        adjusted_months += int(result["revision_applied"])
+    return cost, covered_days, adjusted_months
+
+
+def build_payroll_cost_monthly(payroll_rows):
+    fields = ["employee_number", "employee", "payroll_month", "payroll_total_inr",
+              "calculated_month_cost_inr", "calculated_month_cost_aed", "revision_applied",
+              "revision_effective_from", "previous_regular_salary_inr", "revised_regular_salary_inr",
+              "previous_month_cost_inr", "revised_month_cost_inr", "decision"]
+    rows = []
+    for payroll in payroll_rows:
+        month = payroll["month"]
+        month_end = date(month.year, month.month, calendar.monthrange(month.year, month.month)[1])
+        result = payroll_month_cost(payroll, month, month_end)
+        schedule = result["schedule"]
+        applied = result["revision_applied"]
+        rows.append({
+            "employee_number": payroll["employee_id"],
+            "employee": payroll["employee"],
+            "payroll_month": month.isoformat(),
+            "payroll_total_inr": f"{payroll['total_inr']:.2f}",
+            "calculated_month_cost_inr": f"{result['calculated_month_cost_inr']:.2f}",
+            "calculated_month_cost_aed": f"{result['calculated_month_cost_inr'] * INR_TO_AED:.2f}",
+            "revision_applied": "yes" if applied else "no",
+            "revision_effective_from": iso(schedule["effective_from"]) if schedule else "",
+            "previous_regular_salary_inr": f"{schedule['previous_salary']:.2f}" if schedule else "",
+            "revised_regular_salary_inr": f"{schedule['revised_salary']:.2f}" if schedule else "",
+            "previous_month_cost_inr": f"{schedule['previous_month_cost']:.2f}" if schedule else "",
+            "revised_month_cost_inr": f"{schedule['revised_month_cost']:.2f}" if schedule else "",
+            "decision": (
+                "Applied effective-date revision to stale prior-salary Total" if applied
+                else "Retained payroll Total; revision already reflected or Total differs from prior salary"
+                if schedule else "Retained payroll Total; no approved revision"
+            ),
+        })
+    return fields, rows
+
+
+def load_payroll_costs():
+    payroll_rows = read_payroll_records()
+    revisions = read_salary_revisions()
+    revisions_by_id = defaultdict(list)
+    for revision in revisions:
+        if revision["employee_id"]:
+            revisions_by_id[revision["employee_id"]].append(revision)
+    for row in payroll_rows:
+        row["salary_revisions"] = sorted(revisions_by_id.get(row["employee_id"], []),
+                                          key=lambda revision: revision["effective_from"])
+    payroll_by_id = defaultdict(list)
+    for row in payroll_rows:
+        if row["employee_id"]:
+            payroll_by_id[row["employee_id"]].append(row)
+    payroll_ids_by_name = defaultdict(set)
+    for row in payroll_rows:
+        name_key = clean_key(row["employee"])
+        if name_key and row["employee_id"]:
+            payroll_ids_by_name[name_key].add(row["employee_id"])
+    payroll_by_name = {
+        name_key: payroll_by_id[next(iter(employee_ids))]
+        for name_key, employee_ids in payroll_ids_by_name.items()
+        if len(employee_ids) == 1
+    }
+    master_ids = {clean_text(employee.get("Employee Number")) for employee in read_employees()}
+    metadata = {
+        "loaded": bool(payroll_rows),
+        "file": PAYROLL_FILE if payroll_rows else None,
+        "rows": len(payroll_rows),
+        "matched": 0,
+        "revision_file": SALARY_REVISIONS_FILE if revisions else None,
+        "revision_rows": len(revisions),
+        "unmatched_employee_ids": sorted({row["employee_id"] for row in payroll_rows
+                                           if row["employee_id"] and row["employee_id"] not in master_ids}),
+        "currency": "AED",
+        "source_currency": "INR",
+        "inr_to_aed": INR_TO_AED,
+        "basis": "Monthly payroll Total, prorated by calendar days",
+        "revision_rule": "Apply approved salary revisions by effective date only when payroll Total matches the previous regular monthly salary within 1%; otherwise retain payroll Total.",
+        "revision_match_tolerance_pct": 1.0,
+    }
+    metadata["unique_name_fallbacks"] = len(payroll_by_name)
+    return payroll_by_id, payroll_by_name, revisions, metadata
 
 
 # --------------------------------------------------------------------------- main
@@ -1084,14 +1280,28 @@ def main(argv=None):
     if start and end and start > end:
         raise SystemExit("--start must be on or before --end.")
 
-    costs, cost_meta = load_costs()
+    costs, costs_by_name, salary_revisions, cost_meta = load_payroll_costs()
     data = build((start, end) if start or end else None)
     data["cost_loaded"] = cost_meta["loaded"]
+    payroll_months = {row["month"] for rows in costs.values() for row in rows}
+    cost_meta["covered_days"] = 0
+    if data["window_start"] and data["window_end"]:
+        for month in payroll_months:
+            month_end = date(month.year, month.month, calendar.monthrange(month.year, month.month)[1])
+            overlap_start = max(data["window_start"], month)
+            overlap_end = min(data["window_end"], month_end)
+            if overlap_start <= overlap_end:
+                cost_meta["covered_days"] += (overlap_end - overlap_start).days + 1
 
     project_hours = build_project_hours(data)
-    utilisation_fields, utilisation_rows = build_employee_utilisation(data, costs)
-    cost_meta["matched"] = sum(1 for row in utilisation_rows if row["annual_package"])
-    cost_meta["unmatched_employees"] = [row["employee"] for row in utilisation_rows if not row["annual_package"]]
+    utilisation_fields, utilisation_rows = build_employee_utilisation(data, costs, costs_by_name)
+    cost_meta["matched"] = sum(1 for row in utilisation_rows if int(row["covered_payroll_days"]))
+    cost_meta["name_fallback_matched"] = sum(1 for row in utilisation_rows if row["cost_source"] == "employee name")
+    cost_meta["unmatched_employees"] = [row["employee"] for row in utilisation_rows if not int(row["covered_payroll_days"])]
+    payroll_source_rows = [row for employee_rows in costs.values() for row in employee_rows]
+    payroll_cost_fields, payroll_cost_rows = build_payroll_cost_monthly(payroll_source_rows)
+    cost_meta["revision_adjusted_months"] = sum(int(row["revision_adjusted_months"]) for row in utilisation_rows)
+    cost_meta["revision_adjusted_source_months"] = sum(row["revision_applied"] == "yes" for row in payroll_cost_rows)
 
     internal_fields, internal_rows = build_internal_time(data)
     unallocated_fields, unallocated_rows = build_unallocated(data)
@@ -1169,14 +1379,17 @@ def main(argv=None):
         OUT_CLIENT_SUMMARY: write_csv(OUT_CLIENT_SUMMARY, client_summary_fields, client_summary_rows),
         OUT_PEOPLE_SUMMARY: write_csv(OUT_PEOPLE_SUMMARY, people_summary_fields, people_summary_rows),
     }
-    cost_fields = ["employee", "email", "annual_package", "window_cost", "total_logged_hours",
-                   "cost_per_hour_absorption", "cost_per_hour_standard"]
-    counts[OUT_EMPLOYEE_COST] = write_csv(OUT_EMPLOYEE_COST, cost_fields, [{
-        "employee": row["employee"], "email": row["email"], "annual_package": row["annual_package"],
-        "window_cost": row["window_cost"], "total_logged_hours": row["total_logged_hours"],
-        "cost_per_hour_absorption": row["cost_per_hour_absorption"],
-        "cost_per_hour_standard": row["cost_per_hour_standard"],
-    } for row in utilisation_rows if row["annual_package"]])
+    counts[OUT_EMPLOYEE_COST] = write_csv(OUT_EMPLOYEE_COST, utilisation_fields, utilisation_rows)
+    revision_fields = ["employee_number", "employee", "effective_from", "previous_regular_salary_inr", "revised_regular_salary_inr"]
+    revision_rows = [{
+        "employee_number": row["employee_id"],
+        "employee": row["employee"],
+        "effective_from": iso(row["effective_from"]),
+        "previous_regular_salary_inr": f"{row['previous_regular_salary_inr']:.2f}",
+        "revised_regular_salary_inr": f"{row['revised_regular_salary_inr']:.2f}",
+    } for row in salary_revisions]
+    counts[OUT_SALARY_REVISIONS] = write_csv(OUT_SALARY_REVISIONS, revision_fields, revision_rows)
+    counts[OUT_PAYROLL_COST_MONTHLY] = write_csv(OUT_PAYROLL_COST_MONTHLY, payroll_cost_fields, payroll_cost_rows)
 
     manifest = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -1185,8 +1398,8 @@ def main(argv=None):
                    "custom": data["window_custom"],
                    "data_start": iso(data["data_start"]), "data_end": iso(data["data_end"])},
         "sources": {"projects": PROJECTS_FILE, "timesheet": TIMESHEET_FILE, "employees": EMPLOYEES_FILE,
-                    "package": cost_meta["file"]},
-        "cost": {**cost_meta, "default_annual_hours": DEFAULT_ANNUAL_HOURS,
+                "payroll": cost_meta["file"], "salary_revisions": cost_meta["revision_file"]},
+        "cost": {**cost_meta,
                  "unmatched_employees": cost_meta["unmatched_employees"][:50]},
         "totals": {
             "timesheet_rows": len(data["entries"]),
@@ -1219,6 +1432,8 @@ def main(argv=None):
             {"key": "service_mix", "label": "Service mix", "file": OUT_SERVICE_MIX, "rows": counts[OUT_SERVICE_MIX]},
             {"key": "allocation_audit", "label": "Allocation audit trail", "file": OUT_ALLOCATION_AUDIT, "rows": counts[OUT_ALLOCATION_AUDIT]},
             {"key": "employee_cost", "label": "Employee cost", "file": OUT_EMPLOYEE_COST, "rows": counts[OUT_EMPLOYEE_COST]},
+            {"key": "salary_revisions", "label": "Salary revisions", "file": OUT_SALARY_REVISIONS, "rows": counts[OUT_SALARY_REVISIONS]},
+            {"key": "payroll_cost_monthly", "label": "Monthly payroll cost audit", "file": OUT_PAYROLL_COST_MONTHLY, "rows": counts[OUT_PAYROLL_COST_MONTHLY]},
             {"key": "client_summary", "label": "Client summary", "file": OUT_CLIENT_SUMMARY, "rows": counts[OUT_CLIENT_SUMMARY]},
             {"key": "people_summary", "label": "People summary", "file": OUT_PEOPLE_SUMMARY, "rows": counts[OUT_PEOPLE_SUMMARY]},
         ],
@@ -1242,7 +1457,7 @@ def main(argv=None):
         print(f"  {name}: {count:,} rows")
     print(f"  {OUT_MANIFEST}: manifest written")
     if not cost_meta["loaded"]:
-        print("Cost file not present. Upload Employee_Annual_Package.csv/.xlsx to unlock cost and margin.")
+        print("Payroll file not present. Upload the monthly payroll workbook to unlock cost and margin.")
 
 
 if __name__ == "__main__":

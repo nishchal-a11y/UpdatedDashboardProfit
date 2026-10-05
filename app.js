@@ -3,7 +3,7 @@
  * Reads the EDA datasets produced by build_eda.py and renders a sectioned
  * drill-down. Revenue is stored once per project, then attributed to rows by
  * their share of that project's total hours so every grouping reconciles to
- * the same total. Cost is derived live from the uploaded annual package file.
+ * the same total. Cost comes from monthly payroll totals joined by employee number.
  */
 
 const UNALLOCATED_ID = '__unallocated__';
@@ -54,23 +54,15 @@ const state = {
   audit: [],
   clientSummary: [],
   peopleSummary: [],
+  revisions: [],
   costs: new Map(),
   manifest: null,
   filters: {
     search: '', client: 'all', tl: 'all', employee: 'all', service: 'all',
     status: 'all', frequency: 'all', revenueType: 'all', method: 'all',
     hoursBasis: 'all', hideZeroRevenue: false, hideUnallocated: false, hideNonLive: false,
-    deptAllocation: true,
-    // null = derive the rate from each person's annual package. A number is a
-    // flat AED/hour charged to everyone, so 0 has to stay distinct from blank.
-    costPerHourOverride: null,
-    // Blended AED/hour standing in for people with no annual package, so cost
-    // coverage can reach 100%. Null leaves those people at zero cost, which is
-    // the behaviour every figure on the dashboard had before this existed.
-    blendedFallback: null,
+    deptAllocation: true, costPerHourOverride: null, inrToAedOverride: null,
   },
-  costMode: 'absorption',
-  annualHours: 2080,
   crumbs: [],
   hoursCrumbs: [],
   sort: { drill: { key: 'inWindowRevenue', dir: -1 }, hours: { key: 'totalHours', dir: -1 }, audit: { key: 'allocatedHours', dir: -1 }, people: { key: 'totalHours', dir: -1 }, internal: { key: 'hours', dir: -1 }, peopleDrill: { key: 'hours', dir: -1 }, clients: { key: 'inWindowRevenue', dir: -1 }, personSummary: { key: 'hours', dir: -1 }, personSummaryDrill: { key: 'hours', dir: -1 } },
@@ -122,6 +114,7 @@ const num = (value) => {
 };
 const money = (value) => `AED ${new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(Math.round(value))}`;
 const money2 = (value) => `AED ${new Intl.NumberFormat('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}`;
+const moneyInr = (value) => `INR ${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.round(value))}`;
 const dec = (value, digits = 2) => new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 const int = (value) => new Intl.NumberFormat('en-US').format(value);
 /** Hours as a duration. Timesheets are kept and read in hours and minutes, and
@@ -265,7 +258,6 @@ function withoutDepartmentPool(facts) {
 
 const activeFacts = () => (state.filters.deptAllocation ? state.facts : state.deptOffFacts);
 
-/** Hours currently spread by the department pool, whether the toggle is on or off. */
 const deptPoolHours = () => state.facts.reduce((sum, fact) => (fact.method === DEPT_METHOD ? sum + fact.totalHours : sum), 0);
 
 /** Company-wide unallocated hours under the active allocation setting. */
@@ -287,35 +279,45 @@ function ingestCosts(rows) {
     const employee = text(row.employee);
     if (!employee) return;
     state.costs.set(employee, {
-      annualPackage: num(row.annual_package),
+      employeeNumber: text(row.employee_number),
+      windowCostInr: num(row.window_cost_inr),
+      windowCostAed: num(row.window_cost_aed),
+      coveredPayrollDays: num(row.covered_payroll_days),
+      revisionAdjustedMonths: num(row.revision_adjusted_months),
+      costSource: text(row.cost_source),
       loggedHours: num(row.total_logged_hours),
     });
   });
 }
 
-const costLoaded = () => state.costs.size > 0;
+const costLoaded = () => Boolean(state.manifest?.cost?.loaded);
+const payrollCoveredDays = () => num(state.manifest?.cost?.covered_days);
 const costOverride = () => state.filters.costPerHourOverride;
-const blendedFallback = () => state.filters.blendedFallback;
-/** A flat rate stands in for the package file, so cost figures unlock without it. */
-const costReady = () => costLoaded() || costOverride() !== null || blendedFallback() !== null;
+const inrToAedRate = () => state.filters.inrToAedOverride
+  ?? (num(state.manifest?.cost?.inr_to_aed) || 0.042);
+const costHasCoverage = () => costLoaded() && payrollCoveredDays() > 0;
+const costReady = () => costOverride() !== null
+  || (costHasCoverage() && payrollCoveredDays() >= num(state.manifest?.window?.days));
+const costEstimated = () => false;
 
-/** True when this person's rate came from the blended fill-in, not their package. */
-function costEstimated(employee) {
-  if (costOverride() !== null || blendedFallback() === null) return false;
-  const entry = state.costs.get(employee);
-  return !entry || !entry.annualPackage;
+function renderCostRateStatus() {
+  const status = $('costRateStatus');
+  if (!status) return;
+  const fxStatus = $('fxRateStatus');
+  $('inrToAedRate').value = inrToAedRate().toFixed(4);
+  fxStatus.textContent = state.filters.inrToAedOverride === null
+    ? `Default · ${inrToAedRate().toFixed(4)} AED per INR`
+    : `Applied · ${inrToAedRate().toFixed(4)} AED per INR`;
+  status.textContent = costOverride() === null
+    ? `Using payroll CSV · FX ${inrToAedRate().toFixed(4)}`
+    : `Manual ${money2(costOverride())} / h applied to all employees`;
 }
 
 function costPerHour(employee) {
   if (costOverride() !== null) return costOverride();
+  if (!costReady()) return 0;
   const entry = state.costs.get(employee);
-  if (!entry || !entry.annualPackage) return blendedFallback() ?? 0;
-  if (state.costMode === 'standard') {
-    return state.annualHours > 0 ? entry.annualPackage / state.annualHours : 0;
-  }
-  const windowDays = state.manifest?.window?.days || 0;
-  if (!windowDays || !entry.loggedHours) return 0;
-  return (entry.annualPackage * windowDays / 365) / entry.loggedHours;
+  return entry?.loggedHours ? entry.windowCostInr * inrToAedRate() / entry.loggedHours : 0;
 }
 
 /* ------------------------------------------------------------------ filtering */
@@ -440,8 +442,7 @@ function finalise(entry) {
   entry.clientCount = entry.clients.size;
   entry.peopleCount = entry.people.size;
   entry.costCoverage = entry.hours > 0 ? entry.costedHours / entry.hours * 100 : 0;
-  // Hours priced off the blended fill-in rather than a real package. Kept
-  // separate so the cost figure can always disclose how much of it is a guess.
+  // Keep the coverage fields available for the payroll-cost coverage panel.
   entry.estimatedShare = entry.hours > 0 ? entry.estimatedHours / entry.hours * 100 : 0;
   entry.packagedHours = entry.costedHours - entry.estimatedHours;
   entry.packagedCost = entry.cost - entry.estimatedCost;
@@ -673,18 +674,19 @@ function renderHeader() {
   const chip = $('costChip');
   if (costLoaded()) {
     chip.classList.add('ready');
-    $('costChipText').textContent = `Cost loaded · ${int(state.costs.size)} people`;
+    $('costChipText').textContent = `Payroll loaded · ${int(state.manifest.cost.matched)} / ${int(state.manifest.totals.employees)} people`;
   } else {
     chip.classList.remove('ready');
     $('costChipText').textContent = 'Cost source not loaded';
   }
+  renderCostRateStatus();
 }
 
 function renderFilterSummary(rows, totals) {
   const active = Object.entries(state.filters).filter(([key, value]) => {
     if (key === 'hoursBasis') return value !== 'all';
     if (key === 'deptAllocation') return !value;
-    if (key === 'costPerHourOverride' || key === 'blendedFallback') return value !== null;
+    if (key === 'costPerHourOverride') return value !== null;
     if (typeof value === 'boolean') return value;
     return value && value !== 'all';
   }).length;
@@ -694,20 +696,21 @@ function renderFilterSummary(rows, totals) {
 /* ------------------------------------------------------------------ overview */
 
 function costNote(totals) {
-  if (costOverride() !== null) return `Static ${money2(costOverride())} / h · costing mode ignored`;
-  if (!costLoaded() && blendedFallback() === null) return 'Upload the annual package file or set a cost per hour';
-  const estimated = totals.estimatedShare > 0 ? ` · ${pct(totals.estimatedShare)} of hours priced at the blended ${money2(blendedFallback())} / h` : '';
-  if (!costLoaded()) return `Blended ${money2(blendedFallback())} / h · no package file, every hour estimated`;
-  return `${state.costMode === 'absorption' ? 'Absorption' : 'Standard rate'} · ${pct(totals.costCoverage)} of hours costed${estimated}`;
+  if (costOverride() !== null) return `Manual ${money2(costOverride())} / h rate applied to all employees; payroll CSV is overridden`;
+  if (!costLoaded()) return 'Upload the monthly payroll and salary revision workbooks';
+  if (!payrollCoveredDays()) return 'No payroll months overlap the selected window';
+  const dateCoverage = `${int(payrollCoveredDays())} of ${int(state.manifest.window.days)} selected days`;
+  if (!costReady()) return `${dateCoverage} covered; payroll costing is paused for partial windows`;
+  return `${dateCoverage} covered · ${pct(totals.costCoverage)} of hours linked to payroll · ${inrToAedRate().toFixed(4)} AED per INR`;
 }
 
 function renderOverview(rows, totals) {
   const cards = [
     { label: 'In-window revenue', value: money(totals.inWindowRevenue), note: `Contract value ${money(totals.contractRevenue)}` },
     { label: 'Delivery hours', value: hoursText(totals.hours), note: `${hoursText(totals.actualHours)} actual · ${hoursText(totals.allocatedHours)} allocated` },
-    { label: 'Cost', value: lockedMoney(totals.cost), note: costNote(totals), locked: !costReady(), tone: totals.estimatedShare > 0 ? 'warn' : '' },
-    { label: 'Gross profit', value: lockedMoney(totals.profit), note: costReady() ? 'In-window revenue less cost' : 'Needs cost source', locked: !costReady(), tone: costReady() ? (totals.profit >= 0 ? 'good' : 'bad') : '' },
-    { label: 'Margin', value: costReady() ? pct(totals.margin) : '—', note: costReady() ? `Gross profit over revenue${totals.estimatedShare > 0 ? ' · partly estimated' : ''}` : 'Needs cost source', locked: !costReady(), tone: costReady() ? (totals.margin >= 0 ? 'good' : 'bad') : '' },
+    { label: 'Cost', value: costReady() ? money(totals.cost) : '—', note: costNote(totals), locked: !costReady() },
+    { label: 'Gross profit', value: costReady() ? money(totals.profit) : '—', note: costReady() ? `In-window revenue less ${costOverride() !== null ? 'manual-rate' : 'payroll'} cost` : 'Requires full payroll date coverage or a manual rate', locked: !costReady(), tone: costReady() ? (totals.profit >= 0 ? 'good' : 'bad') : '' },
+    { label: 'Margin', value: costReady() ? pct(totals.margin) : '—', note: costReady() ? (costOverride() !== null ? 'Manual rate applied to all employees' : `Payroll-linked hours: ${pct(totals.costCoverage)}`) : 'Requires full payroll date coverage or a manual rate', locked: !costReady(), tone: costReady() ? (totals.margin >= 0 ? 'good' : 'bad') : '' },
     { label: 'Revenue / hour', value: money(totals.revenuePerHour), note: `Over ${hoursText(totals.deliveredHours)} delivered · unallocated excluded`, accent: true },
     { label: 'Unallocated hours', value: hoursText(totals.unallocatedHours), note: `${hoursText(companyUnallocatedHours())} company-wide${state.filters.deptAllocation ? '' : ' · department pool off'}`, tone: totals.unallocatedHours > 0 ? 'warn' : '' },
     { label: 'Coverage', value: `${int(totals.projectCount)} / ${int(totals.clientCount)}`, note: 'Projects / clients in view' },
@@ -835,7 +838,7 @@ function renderHours(rows) {
     { key: 'hours', label: 'Total', num: true, render: (row) => `<strong>${hoursText(row.hours)}</strong>`, value: (row) => row.hours.toFixed(4), total: (row) => hoursText(row.hours) },
     { key: 'allocatedShare', label: 'Allocated %', num: true, render: (row) => pct(row.hours ? row.allocatedHours / row.hours * 100 : 0), value: (row) => (row.hours ? row.allocatedHours / row.hours * 100 : 0).toFixed(2) },
     { key: 'revenuePerHour', label: 'Rev / delivered h', num: true, render: (row) => money(row.revenuePerHour), value: (row) => row.revenuePerHour.toFixed(2) },
-    { key: 'costPerHour', label: 'Cost / logged h', num: true, render: (row) => lockedMoney(row.costPerHour), value: (row) => row.costPerHour.toFixed(2) },
+    { key: 'costPerHour', label: 'Payroll cost / logged h', num: true, render: (row) => lockedMoney(row.costPerHour), value: (row) => row.costPerHour.toFixed(2) },
   ];
   const sorted = sortRows(entries, state.sort.hours);
   renderTable({
@@ -1051,6 +1054,10 @@ function renderPeople() {
     const employee = text(row.employee);
     const rate = costPerHour(employee);
     const totalHours = num(row.total_logged_hours);
+    const payroll = state.costs.get(employee);
+    const coveredPayrollDays = payroll?.coveredPayrollDays || 0;
+    const windowDays = num(state.manifest?.window?.days);
+    const manualRate = costOverride() !== null;
     const heldBack = deptByEmployee.get(employee) || 0;
     return {
       employee,
@@ -1065,21 +1072,32 @@ function renderPeople() {
       utilisation: num(row.utilization_pct),
       projects: num(row.projects_touched),
       nonApproved: num(row.nonapproved_hours),
-      annualPackage: num(row.annual_package),
-      hasPackage: Boolean(text(row.annual_package)),
+      employeeNumber: text(row.employee_number),
+      coveredPayrollDays,
+      revisionAdjustedMonths: payroll?.revisionAdjustedMonths || 0,
+      windowDays,
+      hasPayroll: coveredPayrollDays > 0,
+      hasCost: manualRate || (costReady() && coveredPayrollDays > 0),
+      payrollGap: coveredPayrollDays < windowDays,
+      payrollMatch: payroll?.costSource === 'employee name' ? 'Name fallback'
+        : payroll?.costSource === 'employee number' ? 'Employee number' : 'No match',
       rate,
-      cost: rate * totalHours,
+      cost: manualRate ? rate * totalHours : (payroll?.windowCostInr || 0) * inrToAedRate(),
     };
   });
   const scopes = {
     all: () => true,
     unallocated: (row) => row.unallocatedHours > 0,
     nomaster: (row) => !row.inMaster,
-    nocost: (row) => !row.hasPackage,
+    nocost: (row) => row.payrollGap,
   };
   const rows = mapped.filter(scopes[state.peopleScope]);
   const columns = [
     { key: 'employee', label: 'Person', render: (row) => `<span class="label-main">${esc(row.employee)}${row.inMaster ? '' : '<span class="tag norev">not in master</span>'}</span><span class="label-sub">${esc(row.department)}${row.reportingTo ? ` · reports to ${esc(row.reportingTo)}` : ' · no reporting line'}</span>`, value: (row) => row.employee },
+    { key: 'employeeNumber', label: 'Employee number', render: (row) => row.employeeNumber || '<span class="muted">—</span>', value: (row) => row.employeeNumber },
+    { key: 'payrollMatch', label: 'Payroll match', render: (row) => row.hasPayroll ? esc(row.payrollMatch) : '<span class="muted">No match</span>', value: (row) => row.payrollMatch },
+    { key: 'coveredPayrollDays', label: 'Payroll coverage', num: true, render: (row) => `${int(row.coveredPayrollDays)} / ${int(row.windowDays)} days`, value: (row) => row.coveredPayrollDays },
+    { key: 'revisionAdjustedMonths', label: 'Revised months', num: true, render: (row) => row.revisionAdjustedMonths ? int(row.revisionAdjustedMonths) : '<span class="muted">—</span>', value: (row) => row.revisionAdjustedMonths },
     { key: 'clientHours', label: 'Client', num: true, render: (row) => hoursText(row.clientHours), value: (row) => row.clientHours.toFixed(4) },
     { key: 'internalHours', label: 'Internal', num: true, render: (row) => hoursText(row.internalHours), value: (row) => row.internalHours.toFixed(4) },
     { key: 'allocatedHours', label: 'Allocated', num: true, render: (row) => (row.allocatedHours ? hoursText(row.allocatedHours) : '<span class="muted">—</span>'), value: (row) => row.allocatedHours.toFixed(4) },
@@ -1088,12 +1106,12 @@ function renderPeople() {
     { key: 'utilisation', label: 'Utilisation', num: true, render: (row) => pct(row.utilisation), value: (row) => row.utilisation.toFixed(2) },
     { key: 'projects', label: 'Projects', num: true, render: (row) => int(row.projects), value: (row) => row.projects },
     { key: 'nonApproved', label: 'Non-approved', num: true, render: (row) => row.nonApproved ? hoursText(row.nonApproved) : '<span class="muted">—</span>', value: (row) => row.nonApproved.toFixed(4) },
-    { key: 'annualPackage', label: 'Annual package', num: true, render: (row) => row.annualPackage ? money(row.annualPackage) : '<span class="locked">—</span>', value: (row) => row.annualPackage.toFixed(2) },
-    { key: 'rate', label: 'Cost / h', num: true, render: (row) => (costOverride() !== null || row.rate) ? money2(row.rate) : '<span class="locked">—</span>', value: (row) => row.rate.toFixed(4) },
-    { key: 'cost', label: 'Window cost', num: true, render: (row) => (costOverride() !== null || row.cost) ? money(row.cost) : '<span class="locked">—</span>', value: (row) => row.cost.toFixed(2) },
+    { key: 'cost', label: 'Cost (AED)', num: true, render: (row) => row.hasCost ? money(row.cost) : '<span class="locked">—</span>', value: (row) => row.cost.toFixed(2) },
+    { key: 'rate', label: 'Cost / h', num: true, render: (row) => row.hasCost ? money2(row.rate) : '<span class="locked">—</span>', value: (row) => row.rate.toFixed(4) },
   ];
   const sorted = sortRows(rows, state.sort.people);
-  $('peopleNote').textContent = `${int(rows.length)} people. Click a person to open their team, client and project breakdown.`;
+  const revisedMonths = rows.reduce((sum, row) => sum + row.revisionAdjustedMonths, 0);
+  $('peopleNote').textContent = `${int(rows.length)} people · ${int(revisedMonths)} employee-months adjusted from approved salary revisions. Click a person to open their breakdown.`;
   renderTable({
     head: $('peopleHead'), body: $('peopleBody'), columns, rows: sorted,
     sort: state.sort.people, sortId: 'people', drillable: true, rowKey: (row) => row.employee,
@@ -1101,6 +1119,19 @@ function renderPeople() {
   });
   $('exportPeople').onclick = () => downloadCsv('people.csv', columns, sorted);
   renderPersonDrill(mapped.find((row) => row.employee === state.peopleFocus) || null);
+  renderSalaryRevisions();
+}
+
+function renderSalaryRevisions() {
+  const end = state.manifest?.window?.end || '';
+  const rows = state.revisions
+    .filter((row) => row.effective_from <= end)
+    .sort((left, right) => right.effective_from.localeCompare(left.effective_from));
+  $('revisionNote').textContent = `${int(rows.length)} approved changes effective on or before ${end || 'the selected period'}. Payroll Total already reflects these changes; revisions are shown for audit, not added again.`;
+  $('revisionHead').innerHTML = '<tr><th>Effective from</th><th>Employee</th><th>Employee number</th><th>Previous regular salary (INR)</th><th>Revised regular salary (INR)</th></tr>';
+  $('revisionBody').innerHTML = rows.length
+    ? rows.map((row) => `<tr><td>${esc(row.effective_from)}</td><td>${esc(row.employee)}</td><td>${esc(row.employee_number)}</td><td>${moneyInr(num(row.previous_regular_salary_inr))}</td><td>${moneyInr(num(row.revised_regular_salary_inr))}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">No approved revisions in this period.</td></tr>';
 }
 
 /**
@@ -1436,50 +1467,44 @@ function clusterClients(entries, requestedK) {
 const OVERHEAD_CLIENT = 'Unallocated / Overhead';
 
 /**
- * Blended hourly cost panel.
- *
- * Two rates are shown because they answer different questions: the rate the
- * real annual packages imply, and the rate actually applied once the fill-in
- * covers the people who have no package. Anything estimated is stated in hours
- * and per cent, so the margin above can never look better than its evidence.
+ * Payroll cost panel with date and employee coverage.
  */
 function renderBlendedCost(totals) {
-  const packagedRate = totals.packagedHours > 0 ? totals.packagedCost / totals.packagedHours : 0;
-  const effectiveRate = totals.hours > 0 ? totals.cost / totals.hours : 0;
   const uncovered = Math.max(0, totals.hours - totals.costedHours);
   const share = (hours) => (totals.hours > 0 ? hours / totals.hours * 100 : 0);
+  const fx = inrToAedRate();
+  const coveredDays = payrollCoveredDays();
+  const windowDays = num(state.manifest?.window?.days);
 
   $('blendFigures').innerHTML = [
-    statCard('Rate from packages', totals.packagedHours > 0 ? money2(packagedRate) : '—'),
-    statCard('Blended fill-in', blendedFallback() === null ? '—' : money2(blendedFallback())),
-    statCard('Effective blended rate', costReady() ? money2(effectiveRate) : '—'),
-    statCard('Cost in view', lockedMoney(totals.cost)),
+    statCard('Cost source', costOverride() !== null ? 'Manual rate' : 'Payroll CSV'),
+    statCard('Cost in view · AED', costReady() ? money(totals.cost) : '—'),
+    statCard('INR → AED', `${fx.toFixed(4)} AED / INR`),
+    statCard('Date coverage', costOverride() !== null ? 'Not required' : `${int(coveredDays)} / ${int(windowDays)} days`),
   ].join('');
 
-  const segments = [
-    { label: 'Priced from packages', hours: totals.packagedHours, tone: '' },
-    { label: 'Priced at the blended rate', hours: totals.estimatedHours, tone: 'alt' },
-    { label: 'Not costed', hours: uncovered, tone: 'bad' },
-  ].filter((segment) => segment.hours > 1e-4);
+  const segments = costReady() ? [
+    { label: costOverride() !== null ? 'Costed at manual rate' : 'Linked to payroll', hours: totals.costedHours, tone: '' },
+    { label: 'No matched payroll', hours: costOverride() !== null ? 0 : uncovered, tone: 'bad' },
+  ].filter((segment) => segment.hours > 1e-4) : [];
 
   $('costCoverage').innerHTML = segments.length
     ? `<div class="coverage-bar">${segments.map((segment) => `<div class="coverage-seg ${segment.tone}" style="width:${share(segment.hours)}%" title="${esc(segment.label)}: ${hoursText(segment.hours)}"></div>`).join('')}</div>
        <div class="coverage-legend">${segments.map((segment) => `<span class="coverage-key ${segment.tone}">${esc(segment.label)} · ${hoursText(segment.hours)} (${pct(share(segment.hours))})</span>`).join('')}</div>`
-    : '<p class="note">No hours in view.</p>';
+    : `<p class="note">${costReady() ? 'No hours in view.' : 'Employee coverage is shown after the selected date range is fully covered.'}</p>`;
 
   const note = $('blendNote');
   if (costOverride() !== null) {
-    note.textContent = `A flat ${money2(costOverride())} / h is set in the filter bar, so every hour in view is priced at that rate and this blended fill-in is ignored.`;
-  } else if (!costLoaded() && blendedFallback() === null) {
-    note.textContent = 'No annual package file and no blended rate, so cost, profit and margin stay locked. Set a rate here, or upload the package file under Sources.';
+    note.textContent = `Manual rate ${money2(costOverride())} per hour is applied to all employees and overrides the payroll CSV. Select Use payroll CSV to return to imported monthly costs.`;
   } else if (!costLoaded()) {
-    note.textContent = `No package file, so all ${hoursText(totals.hours)} are priced at the blended ${money2(blendedFallback())} / h. Every cost and margin figure on the dashboard is an estimate until the package file is uploaded.`;
-  } else if (blendedFallback() === null && uncovered > 1e-4) {
-    note.textContent = `${hoursText(uncovered)} (${pct(share(uncovered))}) belong to people with no annual package and are priced at zero, so margin reads better than it is. Set a blended rate to close the gap.`;
-  } else if (totals.estimatedHours > 1e-4) {
-    note.textContent = `${hoursText(totals.estimatedHours)} (${pct(share(totals.estimatedHours))}) are priced at the blended ${money2(blendedFallback())} / h because those people have no package on file. The rest comes from real packages, so margin is estimated to that extent.`;
+    note.textContent = 'Monthly payroll data is not loaded. Add the payroll and approved salary revision workbooks under Sources.';
+  } else if (coveredDays < windowDays) {
+    note.textContent = `Payroll covers ${int(coveredDays)} of ${int(windowDays)} selected days. Cost, profit and margin are unavailable until the entire date window is covered.`;
+  } else if (uncovered > 1e-4) {
+    note.textContent = `${hoursText(uncovered)} (${pct(share(uncovered))}) have no matched employee payroll rows. They are excluded from cost, which may overstate profit and margin.`;
   } else {
-    note.textContent = `Every hour in view is priced from a real annual package at ${money2(packagedRate)} / h. Nothing here is estimated.`;
+    const revisedMonths = int(state.manifest?.cost?.revision_adjusted_months || 0);
+    note.textContent = `Monthly payroll and revised costs are converted from INR to AED at ${fx.toFixed(4)} AED per INR. ${revisedMonths} employee-months use effective-dated revisions where Total still matched the old salary base.`;
   }
 }
 
@@ -1529,7 +1554,7 @@ function renderClients(rows) {
   $('clientStrip').innerHTML = [
     statCard('In-window revenue', money(totals.inWindowRevenue)),
     statCard('Delivered hours', hoursText(totals.deliveredHours)),
-    statCard('Blended cost / h', costReady() ? money2(totals.costPerHour) : '—'),
+    statCard('Payroll cost / h', costReady() ? money2(totals.costPerHour) : '—'),
     statCard('Cost', lockedMoney(totals.cost)),
     statCard('Gross profit', lockedMoney(totals.profit)),
     statCard('Margin', costReady() ? pct(totals.margin) : '—'),
@@ -1663,10 +1688,8 @@ function edaFlatRows(rows, clusterOf) {
     hours: totals.hours,
     revenue: totals.inWindowRevenue,
     cost: totals.cost,
-    // Blank cost cell when nothing in the group could be costed (no package
-    // uploaded, no override, no blended rate); otherwise the zero would masquerade
-    // as a real figure.
-    costed: costReady() && (totals.costedHours > 0 || costOverride() !== null),
+    // Blank cost cell when the group has no matched payroll hours.
+    costed: costReady() && totals.costedHours > 0,
   });
 
   const walk = (nodes, trail) => {
@@ -1775,9 +1798,8 @@ function renderClientEda(rows, clusterOf) {
 
   // The facts array is compared by identity because a window rebuild replaces
   // it wholesale, which the filter signature on its own would not catch. Cost
-  // mode and annual hours sit outside state.filters but move every cost figure,
-  // so they must be in the key or the breakdown would keep its stale numbers.
-  const key = `${rows.length}|${JSON.stringify(state.filters)}|${state.clusterK}|${state.costMode}|${state.annualHours}|${state.costs.size}`;
+  // Payroll rows move every cost figure, so they remain in the cache key.
+  const key = `${rows.length}|${JSON.stringify(state.filters)}|${state.clusterK}|${state.costs.size}`;
   const unchanged = clientEdaCache.key === key && clientEdaCache.facts === state.facts;
   if (unchanged && state.clientEdaReady) return;
   if (!unchanged) {
@@ -1913,7 +1935,7 @@ function personSummaryRows(rows) {
     entry.department = text(utilisation?.department) || '—';
     entry.reportingTo = text(utilisation?.reporting_to);
     entry.inMaster = text(utilisation?.in_employee_master) === 'yes';
-    entry.hasPackage = Boolean(text(utilisation?.annual_package));
+    entry.hasPayroll = Boolean(state.costs.get(entry.key)?.coveredPayrollDays);
     entry.internalHours = entry.allocatedHours + entry.unallocatedHours;
     // Utilisation is recomputed from the rows in view rather than read from the
     // build, so it tracks the filters like every other figure on the page.
@@ -1980,7 +2002,7 @@ function renderPeopleSummary(rows) {
     }, value: (person) => person.utilisation.toFixed(2) },
     { key: 'inWindowRevenue', label: 'Revenue share', num: true, render: (person) => money(person.inWindowRevenue), value: (person) => person.inWindowRevenue.toFixed(2), total: (row) => money(row.inWindowRevenue) },
     { key: 'revenuePerHour', label: 'Rev / delivered h', num: true, render: (person) => money(person.revenuePerHour), value: (person) => person.revenuePerHour.toFixed(2) },
-    { key: 'costPerHour', label: 'Cost / h', num: true, render: (person) => lockedMoney(person.costPerHour), value: (person) => person.costPerHour.toFixed(4) },
+    { key: 'costPerHour', label: 'Payroll cost / h', num: true, render: (person) => lockedMoney(person.costPerHour), value: (person) => person.costPerHour.toFixed(4) },
     { key: 'cost', label: 'Cost', num: true, render: (person) => lockedMoney(person.cost), value: (person) => person.cost.toFixed(2), total: (row) => lockedMoney(row.cost) },
     {
       key: 'flags', label: 'Flags', sortable: false,
@@ -2142,6 +2164,18 @@ function pageCount(page) {
   return num(totals.people_summarised) || state.peopleSummary.length;
 }
 
+const RAIL_ICONS = {
+  overview: 'layout-dashboard',
+  drill: 'chart-no-axes-combined',
+  hours: 'clock-3',
+  audit: 'clipboard-check',
+  internal: 'timer',
+  people: 'users-round',
+  sources: 'database',
+  clients: 'chart-pie',
+  'people-summary': 'users-round',
+};
+
 function buildRailNav() {
   if (railObserver) { railObserver.disconnect(); railObserver = null; }
   const sections = [...document.querySelectorAll('.block:not([data-page])')];
@@ -2149,13 +2183,20 @@ function buildRailNav() {
   const rest = sections.slice(1);
   const link = (section) => {
     const title = section.querySelector('h2').textContent;
-    return `<a href="#${section.id}" data-target="${section.id}">${esc(title)}</a>`;
+    const icon = RAIL_ICONS[section.dataset.section] || 'circle';
+    return `<a href="#${section.id}" data-target="${section.id}"><span class="rail-link-content"><i class="rail-icon" data-lucide="${icon}" aria-hidden="true"></i>${esc(title)}</span></a>`;
   };
-  const pageLinks = PAGES.map((page) => `<a href="${page.hash}" data-view="${page.view}" class="page-link${state.view === page.view ? ' active' : ''}">${esc(page.label)}<b>${int(pageCount(page))}</b></a>`).join('');
+  const pageLinks = PAGES.map((page) => {
+    const icon = RAIL_ICONS[page.view] || 'circle';
+    return `<a href="${page.hash}" data-view="${page.view}" class="page-link${state.view === page.view ? ' active' : ''}"><span class="rail-link-content"><i class="rail-icon" data-lucide="${icon}" aria-hidden="true"></i>${esc(page.label)}</span><b>${int(pageCount(page))}</b></a>`;
+  }).join('');
   $('railNav').innerHTML = [
     overview ? link(overview) : '', ...rest.map(link),
     '<div class="rail-group">Summaries</div>', pageLinks,
   ].join('');
+  if (window.lucide?.createIcons) {
+    window.lucide.createIcons({ root: $('railNav'), attrs: { focusable: 'false' } });
+  }
   if (state.view !== 'page') return;
   railObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
@@ -2188,6 +2229,19 @@ function setView(view) {
   buildRailNav();
 }
 
+function openPayrollCoverage() {
+  if (state.view !== 'page') setView('page');
+  const section = $('section-people');
+  section.classList.remove('collapsed');
+  section.querySelector('.twist').setAttribute('aria-expanded', 'true');
+  state.peopleScope = 'all';
+  $('peopleScope').value = 'all';
+  setFilterBar(false);
+  renderPeople();
+  if (window.location.hash !== '#section-people') history.pushState(null, '', '#section-people');
+  requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
 function viewFromHash() {
   const hash = location.hash;
   const page = PAGES.find((item) => item.hash === hash || `#${item.section}` === hash);
@@ -2211,6 +2265,7 @@ function bindRailNav() {
       if (twist) twist.setAttribute('aria-expanded', 'true');
     }
   });
+  $('costChip').addEventListener('click', openPayrollCoverage);
 }
 
 function bindSections() {
@@ -2352,10 +2407,37 @@ function bindFilters() {
   bind('revenueTypeFilter', 'revenueType');
   bind('methodFilter', 'method');
   bind('hoursBasis', 'hoursBasis');
-  $('costPerHour').addEventListener('input', (event) => {
-    const raw = event.target.value.trim();
-    const parsed = Number(raw);
-    state.filters.costPerHourOverride = raw === '' || !Number.isFinite(parsed) ? null : Math.max(0, parsed);
+  $('applyFxRate').addEventListener('click', () => {
+    const raw = $('inrToAedRate').value.trim();
+    const rate = Number(raw);
+    if (!raw || !Number.isFinite(rate) || rate <= 0) {
+      $('fxRateStatus').textContent = 'Enter a positive AED-per-INR conversion rate.';
+      return;
+    }
+    state.filters.inrToAedOverride = rate;
+    renderCostRateStatus();
+    render();
+  });
+  $('resetFxRate').addEventListener('click', () => {
+    state.filters.inrToAedOverride = null;
+    renderCostRateStatus();
+    render();
+  });
+  $('applyCostRate').addEventListener('click', () => {
+    const raw = $('costPerHour').value.trim();
+    const rate = Number(raw);
+    if (!raw || !Number.isFinite(rate) || rate < 0) {
+      $('costRateStatus').textContent = 'Enter a nonnegative AED/hour rate to apply.';
+      return;
+    }
+    state.filters.costPerHourOverride = rate;
+    renderCostRateStatus();
+    render();
+  });
+  $('usePayrollCost').addEventListener('click', () => {
+    state.filters.costPerHourOverride = null;
+    $('costPerHour').value = '';
+    renderCostRateStatus();
     render();
   });
   bind('hideZeroRevenue', 'hideZeroRevenue');
@@ -2380,10 +2462,11 @@ function bindFilters() {
       search: '', client: 'all', tl: 'all', employee: 'all', service: 'all', status: 'all',
       frequency: 'all', revenueType: 'all', method: 'all', hoursBasis: 'all',
       hideZeroRevenue: false, hideUnallocated: false, hideNonLive: false, deptAllocation: true,
-      costPerHourOverride: null,
+      costPerHourOverride: null, inrToAedOverride: null,
     });
     $('search').value = '';
     $('costPerHour').value = '';
+    renderCostRateStatus();
     ['clientFilter', 'tlFilter', 'employeeFilter', 'serviceFilter', 'statusFilter', 'frequencyFilter', 'revenueTypeFilter', 'methodFilter', 'hoursBasis'].forEach((id) => { $(id).value = 'all'; });
     ['hideZeroRevenue', 'hideUnallocated', 'hideNonLive'].forEach((id) => { $(id).checked = false; });
     $('deptAllocation').checked = true;
@@ -2391,20 +2474,6 @@ function bindFilters() {
     resetDrill();
     render();
   });
-}
-
-function bindCost() {
-  $('costMode').addEventListener('change', (event) => {
-    state.costMode = event.target.value;
-    $('annualHoursWrap').classList.toggle('hidden', state.costMode !== 'standard');
-    render();
-  });
-  $('annualHours').addEventListener('change', (event) => {
-    state.annualHours = Math.max(1, Number(event.target.value) || 2080);
-    event.target.value = state.annualHours;
-    render();
-  });
-  $('annualHoursWrap').classList.toggle('hidden', state.costMode !== 'standard');
 }
 
 function bindDrill() {
@@ -2491,12 +2560,6 @@ function bindClients() {
     state.page.clients = 0;
     render();
   });
-  $('blendedRate').addEventListener('input', (event) => {
-    const raw = event.target.value.trim();
-    const parsed = Number(raw);
-    state.filters.blendedFallback = raw === '' || !Number.isFinite(parsed) ? null : Math.max(0, parsed);
-    render();
-  });
   $('clusterCards').addEventListener('click', (event) => {
     const card = event.target.closest('[data-cluster]');
     if (!card) return;
@@ -2554,7 +2617,7 @@ function bindPeopleSummary() {
 
 /* ------------------------------------------------------------------ sources */
 
-const SOURCE_FIELDS = { projects: 'projectsFile', timesheet: 'timesheetFile', employees: 'employeesFile', package: 'packageFile' };
+const SOURCE_FIELDS = { projects: 'projectsFile', timesheet: 'timesheetFile', employees: 'employeesFile', payroll: 'payrollFile', revisions: 'revisionsFile' };
 
 /**
  * Rebuild the EDA server-side, then reload every dataset in place. Files are
@@ -2659,13 +2722,11 @@ async function loadAll() {
   const stamp = `?v=${Date.now()}`;
   $('bootText').textContent = 'Loading manifest';
   state.manifest = await loadJson(`EDA_Manifest.json${stamp}`);
-  state.annualHours = state.manifest.cost?.default_annual_hours || 2080;
-  $('annualHours').value = state.annualHours;
   $('bootText').textContent = 'Loading project hours';
   state.projects = new Map();
   ingestFacts(await loadCsv(`EDA_Project_Hours.csv${stamp}`));
   $('bootText').textContent = 'Loading supporting datasets';
-  const [utilisation, internal, unallocated, unallocatedNoDept, mismatch, audit, costs, clientSummary, peopleSummary] = await Promise.all([
+  const [utilisation, internal, unallocated, unallocatedNoDept, mismatch, audit, costs, clientSummary, peopleSummary, revisions] = await Promise.all([
     loadCsvOptional(`EDA_Employee_Utilization.csv${stamp}`),
     loadCsvOptional(`EDA_Internal_Time.csv${stamp}`),
     loadCsvOptional(`EDA_Unallocated_Hours.csv${stamp}`),
@@ -2675,6 +2736,7 @@ async function loadAll() {
     loadCsvOptional(`EDA_Employee_Cost.csv${stamp}`),
     loadCsvOptional(`EDA_Client_Summary.csv${stamp}`),
     loadCsvOptional(`EDA_People_Summary.csv${stamp}`),
+    loadCsvOptional(`EDA_Salary_Revisions.csv${stamp}`),
   ]);
   state.utilisation = utilisation;
   state.internal = internal;
@@ -2684,6 +2746,7 @@ async function loadAll() {
   state.audit = audit;
   state.clientSummary = clientSummary;
   state.peopleSummary = peopleSummary;
+  state.revisions = revisions;
   ingestCosts(costs);
 }
 
@@ -2699,7 +2762,6 @@ async function init() {
     setView(viewFromHash());
     window.addEventListener('hashchange', () => setView(viewFromHash()));
     bindFilters();
-    bindCost();
     bindWindow();
     bindDrill();
     bindHoursDrill();

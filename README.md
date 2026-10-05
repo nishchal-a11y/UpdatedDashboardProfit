@@ -48,14 +48,17 @@ It re-derives every accounting identity the dashboard depends on and exits non-z
 | --- | --- |
 | `Projects.csv` | Source. Contract amount, client, service, team lead, start/end/deadline, status. |
 | `TimeSheet_Row_data.csv` | Source. One row per logged time entry: person, date, hours, status, day type, project or general task. |
-| `All Employees - Finanshels.com.xlsx` | Source. Employee master: email, reporting line, department, job title. |
-| `Employee_Annual_Package.csv` / `.xlsx` | Optional source. Person plus annual package. Absent by default, which is why cost and margin start locked. |
+| `All Employees - Finanshels.com.xlsx` | Source. Employee master: employee number, name, email, reporting line, department, job title. Payroll and revisions join to it by employee number. |
+| `All Employees Month-on-Month YTD Report_Jan 2026 - Aug 2026 _.xlsx` | Source. Monthly payroll; `Employee Number`, `Payroll Month` and `Total` drive employee cost. `Total` is reported in INR. |
+| `Emp_Salary_Revisions_Finanshels.com_.xlsx` | Source. Approved regular-salary revisions keyed by employee number, with effective dates. Corrects payroll months only when `Total` still matches the previous salary base. |
 | `build_eda.py` | The whole calculation: parsing, matching, allocation, revenue recognition, data-quality counters. |
 | `dashboard_server.py` | Static file server plus `POST /api/regenerate`, which accepts replacement source files and re-runs the build. |
 | `index.html`, `styles.css`, `app.js` | The dashboard. `app.js` reads the EDA CSVs and does the live slicing, revenue attribution and costing. |
 | `validate_eda.py` | Post-build assertions over the generated CSVs. |
 | `EDA_Client_Summary.csv` | Generated. One row per client: hours split, revenue, top project/team lead/service, project concentration. Backs the Client summary page's company baseline. |
 | `EDA_People_Summary.csv` | Generated. One row per person: clients and projects touched, top client and its share, biggest project, revenue share. Backs the People summary page's company medians. |
+| `EDA_Payroll_Cost_Monthly.csv` | Generated audit. One row per payroll employee-month, showing source `Total`, revision basis, calculated monthly cost, and whether an effective-dated correction was applied. |
+| `Cost_Allocation_Flow.drawio` | Editable draw.io diagram of matching, salary-revision handling, date coverage, currency conversion, and row allocation. |
 | `EDA_*.csv`, `EDA_Manifest.json` | Generated. Deleting them is safe; rebuild recreates them. |
 
 ---
@@ -64,16 +67,16 @@ It re-derives every accounting identity the dashboard depends on and exits non-z
 
 - **Window** (top right) sets the reporting period. Changing it re-runs `build_eda.py` server-side, because the window changes hours, revenue recognition and the allocation history together. "Full history" returns to every dated timesheet row.
 - **Filters** scope every section at once. "Hours basis" switches between all logged hours and approved-only. "Department allocation" is explained under [Allocation](#allocation).
-- **Overview** shows revenue, hours, cost, profit, margin for the current filter set, plus hours by allocation method.
+- **Overview** shows revenue, hours and payroll-based cost for the current filter set, plus hours by allocation method. Profit and margin are available only when the entire selected date window is covered by payroll.
 - **Revenue & margin drill-down** descends Client → Project → Team lead → Submitted by. Click any row to go a level deeper, use the breadcrumb to come back.
 - **Delivery hours** descends Team lead → Person → Client → Project.
 - **Allocation audit** shows every donor project that set the weight for someone's internal time.
 - **Internal time** shows non-client hours by category, person, reporting line or department, and can push a slice down onto the clients and projects that absorbed it.
-- **People** shows utilisation, allocation coverage and cost per person. Click a person for their own team/client/project breakdown.
+- **People** shows utilisation, allocation coverage and payroll cost per person, plus approved salary revisions and effective dates. Click a person for their own team/client/project breakdown.
 - **Client summary** and **People summary** are pages of their own, grouped under "Summaries" at the foot of the rail and marked in indigo rather than the report's olive. Opening one replaces the scrolling report; the window and filter bar stay live, so a filter set carries across. They are also linkable directly as `index.html#clients` and `index.html#people-summary`.
-  - **Client summary** clusters every client on revenue and delivered hours, shows the blended hourly cost with the estimated portion called out, and descends Client → Project → Team lead → People. Clustering and the blended rate are defined under [Client clustering](#client-clustering) and [Blended hourly cost](#blended-hourly-cost).
+  - **Client summary** clusters every client on revenue and delivered hours, shows payroll coverage and descends Client → Project → Team lead → People. Clustering is defined under [Client clustering](#client-clustering).
   - **People summary** shows who each person delivers for, the project taking most of their hours, and the rules that flag their mix. See [Insight rules](#insight-rules).
-- **Sources** replaces any source file and rebuilds. Uploading `Employee_Annual_Package.csv` or `.xlsx` is what unlocks cost, profit and margin; until then those cells show a dash.
+- **Sources** replaces any source file and rebuilds. The payroll workbook powers cost; salary revisions are shown for audit. Replace both through Sources when payroll data is refreshed.
 - Every table has an **Export** button that writes the current view as CSV.
 
 ---
@@ -159,15 +162,15 @@ Unfiltered, every grouping — by client, project, team lead, person, service, s
 
 ### Cost, profit and margin
 
-Cost needs the annual package file. A person is matched by email first, then by normalised full name.
+Payroll rows first join to the employee master by `Employee Number`; the existing timesheet-to-master match supplies that ID. If no ID match is available, the build falls back to a normalized employee name only when it identifies one payroll employee. Ambiguous names remain unmatched and payroll-only IDs are listed in the manifest.
 
 ```
-absorption (default)
-    window cost  = annual package × window days / 365
-    cost / hour  = window cost / that person's total logged hours
-
-standard rate
-    cost / hour  = annual package / annual hours       (default 2080, editable in the Overview)
+revised month cost (INR)   = Σ((annual regular salary / 12) × days at that salary / days in month)
+monthly cost (INR)         = revised month cost only when Total matches previous salary / 12 within 1%
+                            (minimum INR 2); otherwise retain payroll Total
+payroll cost (AED)         = selected-window cost (INR) × active INR → AED filter rate
+                            (default 0.042 AED per INR from the EDA manifest)
+cost / hour                = window payroll cost (AED) / that person's total logged hours
 
 row cost     = row hours × cost / hour
 gross profit = in-window revenue − cost
@@ -179,27 +182,34 @@ revenue / hour   = in-window revenue / delivered hours
 cost / hour      = cost / all logged hours in view
 ```
 
-The two rates use different denominators on purpose. Unallocated hours earn nothing, so leaving them in the revenue rate would dilute it and would hide the effect of the department-allocation toggle, which moves hours between the allocated and unallocated buckets without changing the total. Cost is incurred on every logged hour, unallocated included, so it stays over all hours.
+The payroll workbook covers January through August 2026. Cost is suppressed unless every day in the selected window is covered; this prevents payroll from being spread onto hours outside the source period.
 
-Absorption charges the whole payroll for the window and spreads it over whatever was actually logged, so people who logged less carry a higher rate per hour. The standard rate ignores how much was logged and is the better comparison when timesheet discipline is uneven. Watch cost coverage: with only part of the roster costed, margin is optimistic.
+For each employee-month, the builder finds approved revisions by employee number. If payroll `Total` matches the previous regular salary divided by 12 within 1% (minimum INR 2), and the revision changes the month cost, the old base is treated as stale and replaced with the salary schedule weighted by `EFFECTIVE FROM`. Otherwise payroll `Total` is retained as actual payroll, including months where a raise or catch-up is already reflected. This avoids applying the same raise twice. Partial windows sum the applicable daily cost across selected dates. The comparison and result are recorded in `EDA_Payroll_Cost_Monthly.csv`; People shows adjusted-month counts. See [Cost_Allocation_Flow.drawio](Cost_Allocation_Flow.drawio) for the editable flow diagram.
 
-### Blended hourly cost
-
-The package file rarely covers everyone, and hours belonging to an uncovered person are priced at zero, which quietly flatters margin. The Client summary page exposes a blended AED/hour that fills in **only** those people:
-
+```mermaid
+flowchart LR
+  P[Monthly payroll: Employee Number, Name, Payroll Month, Total INR] --> M[Match employee ID first; unique normalized name fallback]
+  E[Employee master] --> M
+  R[Approved salary revisions: previous, revised, effective date] --> D{Total matches previous salary / 12 within 1%?}
+  M --> D
+  D -- Yes --> A[Replace stale base with revised salary weighted by effective days]
+  D -- No --> T[Retain payroll Total as recorded]
+  A --> W[Apply selected-window overlap days]
+  T --> W
+  A --> U[Write monthly cost audit]
+  T --> U
+  W --> G{Whole selected window covered?}
+  G -- Yes --> X[Convert INR to AED at 0.042]
+  G -- No --> L[Payroll cost, profit and margin locked]
+  X --> H[Employee cost / logged hours = AED per hour]
+  H --> C[Project row cost = row hours × employee rate]
+  C --> O[Overview, People, project and client summaries]
+  F[Manual AED/hour override] --> C
 ```
-cost / hour for a person =
-    flat cost-per-hour override, if the filter bar sets one       (applies to everyone)
-    else their own package rate, absorption or standard           (as above)
-    else the blended rate, if one is set                          (estimated)
-    else 0                                                        (uncosted)
 
-rate from packages      = cost of packaged hours / packaged hours
-effective blended rate  = total cost in view / total hours in view
-estimated share %       = hours priced at the blended rate / hours in view × 100
-```
+Cost coverage also calls out logged hours without a matched payroll row. The Filters section defaults to payroll CSV costing. The **INR → AED rate** control defaults from the manifest (0.042 AED per INR); enter a positive rate and select **Apply FX** to recalculate all payroll-derived costs, or **Default FX** to restore the manifest rate. This conversion override does not change source payroll amounts in INR. The separate manual AED/hour control can override CSV costing for all employees with **Apply rate**; **Use payroll CSV** restores CSV costs. **Reset filters** clears both overrides.
 
-Three figures rather than one, because they answer different questions: what the real packages imply, what rate is actually being applied, and how much of that is a guess. The panel splits the hours in view into priced-from-packages, priced-at-the-blended-rate and not-costed, and the Overview's cost and margin cards restate the estimated share whenever it is above zero. Leaving the rate blank reproduces the old behaviour exactly: uncovered hours stay at zero cost and nothing is marked estimated.
+Unallocated hours earn no revenue, so they stay out of the revenue-per-hour denominator. Payroll cost, when available, covers all logged hours, including unallocated hours.
 
 ### Client clustering
 
@@ -239,9 +249,9 @@ The People summary page flags people by deterministic rules rather than a model,
 | Cost above yield | Cost per logged hour exceeds revenue per delivered hour (only shown once cost is available) |
 | Non-approved backlog | More than 25% of their logged hours never reached approved |
 | Missing from master | Logging time but absent from the employee master |
-| Missing cost | No annual package on file |
+| Missing cost | No payroll row for the selected period |
 
-The last two are informational rather than risks, so the "flagged as a risk" tally excludes them — with no package file loaded, "missing cost" matches the whole roster and would make the count meaningless.
+The last two are informational rather than risks, so the "flagged as a risk" tally excludes them — with no payroll data loaded, "missing cost" matches the whole roster and would make the count meaningless.
 
 Utilisation on this page is recomputed from the rows in view, so it tracks the filters like every other figure, while the company medians in the stat strip come from `EDA_People_Summary.csv` and stay fixed as the filters move. Approval state is read from the underlying rows, so the non-approved backlog stays visible even when the hours basis is set to approved-only.
 
@@ -264,7 +274,8 @@ flowchart LR
   P[Projects.csv]:::src --> B
   T[TimeSheet_Row_data.csv]:::src --> B
   E[All Employees .xlsx]:::src --> B
-  K[Employee_Annual_Package<br/>optional]:::src --> B
+  K[Monthly payroll workbook]:::src --> B
+  R[Approved salary revisions]:::src --> B
   B[build_eda.py]:::code --> D[(EDA_*.csv<br/>EDA_Manifest.json)]:::data
   D --> A[app.js in the browser]:::code
   A --> V[Dashboard sections]:::ui
@@ -322,18 +333,19 @@ sequenceDiagram
 
 ## 6. Validation status
 
-Last full pass, on the 2026-07-22 → 2026-09-04 window (45 days, 23,337.33h logged, 10,658 emitted rows, AED 2,727,675 in-window revenue):
+Last full pass, on the 2026-07-22 → 2026-08-31 window (41 payroll-covered days, 21,230.26h logged, 9,753 emitted rows, AED 2,559,954 revenue, AED 183,924 payroll cost):
 
 | Check | Result |
 | --- | --- |
 | `python3 -m py_compile build_eda.py dashboard_server.py`, `node --check app.js` | clean |
-| Full build | 23,337.33h logged = 11,188.07h client + 12,149.25h internal; reconciliation drift −0.000146h, the rounding floor of six-decimal output |
-| `validate_eda.py`, 32 accounting identities | all pass, including the client and people summaries reconciling to emitted hours, logged hours and in-window revenue |
-| Browser logic (revenue conservation across 7 grouping dimensions, department toggle, hours basis, each filter, internal spread, both cost modes) | all pass; every grouping totals to the same AED 2,727,675 |
-| Headless render of `index.html` against the running server | all sections populate, no load error |
-| Client and people summary pages, 38 browser assertions | all pass; client revenue equals the Overview, both drills descend and return, clusters are deterministic across a cold cache, the blended rate unlocks cost at hours × rate and clearing it restores the locked state exactly |
+| Full build | 21,230.26h logged = 10,165.28h client + 11,064.99h internal; reconciliation drift +0.000187h, the rounding floor of six-decimal output |
+| `validate_eda.py` | all accounting checks pass, including payroll conversion, cost-per-hour arithmetic, 41/41 date coverage and all 38 approved revision rows |
+| Monthly revision audit | all 665 payroll employee-months reconcile; 22 source months corrected where `Total` matched the prior salary base; 6 adjustments affect this selected window |
+| Salary revision behavior | BLR147 July is corrected from INR 62,500 to INR 87,500; its August INR 111,899 `Total` is retained. BLR260's Aug 16 raise is prorated to INR 21,532.26 |
+| Browser render and in-range window rebuild | all sections populate; July-August shows AED 183,924 payroll cost with 82.6% employee-hour coverage |
+| Out-of-range protection | the 2026-07-22 → 2026-09-04 window covers only 41/45 days, so cost, profit and margin remain unavailable |
 | Upload guards: wrong extension, unknown field, empty file, malformed date, reversed window, partial write | all rejected correctly, no source file touched on rejection |
-| Cost path with a package file, both `.csv` and `.xlsx` | column detection, email and name matching, and both cost modes correct; stale package file of the other extension removed on upload |
+| Cost path with monthly payroll and revisions | `Employee Number` join, monthly `Total` aggregation, INR-to-AED conversion, effective-dated audit rows, and partial date coverage verified |
 
 Two fixes came out of this pass:
 

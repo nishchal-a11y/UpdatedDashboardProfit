@@ -118,28 +118,31 @@ def main():
            if abs(value(row, "allocated_out_hours") + value(row, "unallocated_hours") - value(row, "internal_hours")) > HOUR_TOL]
     check("allocated out + unallocated = internal per person", not bad, f"{len(bad)} rows")
 
-    # ---- cost, only when a package file was supplied
+    # ---- payroll cost and salary revisions
+    cost_rows = read("EDA_Employee_Cost.csv")
+    revision_rows = read("EDA_Salary_Revisions.csv")
+    monthly_cost_rows = read("EDA_Payroll_Cost_Monthly.csv")
     if manifest["cost"]["loaded"]:
-        days = manifest["window"]["days"]
+        rate = manifest["cost"]["inr_to_aed"]
+        covered_days = manifest["cost"]["covered_days"]
+        check("payroll coverage days stay within selected window", 0 <= covered_days <= manifest["window"]["days"],
+              f"{covered_days} / {manifest['window']['days']} days")
         bad = []
-        for row in utilisation:
-            if not row["annual_package"]:
+        for row in cost_rows:
+            if not row["covered_payroll_days"]:
                 continue
-            package = value(row, "annual_package")
-            window_cost = value(row, "window_cost")
+            cost_inr = value(row, "window_cost_inr")
+            cost_aed = value(row, "window_cost_aed")
             logged = value(row, "total_logged_hours")
-            if abs(window_cost - package * days / 365) > 0.01:
+            if abs(cost_aed - cost_inr * rate) > 0.02:
                 bad.append(row["employee"])
-            # window_cost is written to two decimals, so it carries +/-0.005 that
-            # the division by logged hours scales up. Someone with few hours and a
-            # large package would otherwise fail a fixed tolerance on rounding alone.
-            elif logged and abs(value(row, "cost_per_hour_absorption") - window_cost / logged) > 0.005 / logged + 1e-4:
+            elif logged and abs(value(row, "cost_per_hour_absorption") - cost_aed / logged) > 1e-4:
                 bad.append(row["employee"])
-            elif abs(value(row, "cost_per_hour_standard") - package / manifest["cost"]["default_annual_hours"]) > 1e-4:
-                bad.append(row["employee"])
-        check("cost per hour arithmetic", not bad, f"{len(bad)} people")
+        check("payroll INR to AED and hourly cost arithmetic", not bad, f"{len(bad)} people")
+        check("salary revision audit row count", len(revision_rows) == manifest["cost"]["revision_rows"],
+              f"{len(revision_rows)} rows")
     else:
-        print("SKIP cost checks :: no annual package file loaded")
+        print("SKIP cost checks :: no payroll file loaded")
 
     # ---- client summary
     for label, rows in (("client summary", client_summary), ("people summary", people_summary)):
