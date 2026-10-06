@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: profitability-dashboard
+    runtime: python
+    plan: starter
+    buildCommand: "python3 build_eda.py"
+    startCommand: "python3 dashboard_server.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"

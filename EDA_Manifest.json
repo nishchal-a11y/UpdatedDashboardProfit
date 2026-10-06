@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-10-05T13:53:11",
+  "generated_at": "2026-10-05T15:27:59",
   "window": {
     "start": "2026-07-22",
-    "end": "2026-08-31",
-    "days": 41,
-    "months": 1.347,
-    "custom": true,
+    "end": "2026-09-04",
+    "days": 45,
+    "months": 1.478,
+    "custom": false,
     "data_start": "2026-07-22",
     "data_end": "2026-09-04"
   },
@@ -94,42 +94,42 @@
     "revision_adjusted_source_months": 22
   },
   "totals": {
-    "timesheet_rows": 16925,
-    "logged_hours": 21230.262222,
-    "client_hours": 10165.276111,
-    "internal_hours": 11064.986111,
-    "allocated_hours": 10722.402778,
-    "unallocated_hours": 342.583333,
-    "emitted_hours": 21230.262035,
-    "reconciliation_drift": 0.000187,
-    "projects_touched": 1980,
-    "clients_touched": 1133,
+    "timesheet_rows": 18599,
+    "logged_hours": 23337.326111,
+    "client_hours": 11188.073333,
+    "internal_hours": 12149.252778,
+    "allocated_hours": 11770.169444,
+    "unallocated_hours": 379.083333,
+    "emitted_hours": 23337.326257,
+    "reconciliation_drift": -0.000146,
+    "projects_touched": 2158,
+    "clients_touched": 1216,
     "employees": 107,
-    "clients_summarised": 1133,
+    "clients_summarised": 1216,
     "people_summarised": 107,
-    "contract_revenue": 3346191.17,
-    "in_window_revenue": 2559953.56,
-    "eda_rows": 9753
+    "contract_revenue": 3652158.84,
+    "in_window_revenue": 2727675.21,
+    "eda_rows": 10658
   },
   "revenue_basis_mix": {
-    "Undated full": 496,
-    "Out-of-window full": 965,
-    "Prorated": 519
+    "Undated full": 549,
+    "Out-of-window full": 1012,
+    "Prorated": 597
   },
   "allocation_method_hours": {
-    "AM Weighted Allocation": 876.9999,
-    "Actual": 10165.2761,
-    "Department Weighted Allocation": 1339.8332,
-    "Employee Weighted Allocation": 7840.4194,
-    "TL Self Portfolio Allocation": 665.1501,
-    "Unallocated": 342.5833
+    "AM Weighted Allocation": 972.9999,
+    "Actual": 11188.0733,
+    "Department Weighted Allocation": 1476.5002,
+    "Employee Weighted Allocation": 8582.0194,
+    "TL Self Portfolio Allocation": 738.6501,
+    "Unallocated": 379.0833
   },
   "datasets": [
     {
       "key": "project_hours",
       "label": "Project contributor rows",
       "file": "EDA_Project_Hours.csv",
-      "rows": 9753
+      "rows": 10658
     },
     {
       "key": "employee_utilisation",
@@ -141,7 +141,7 @@
       "key": "internal_time",
       "label": "Internal time composition",
       "file": "EDA_Internal_Time.csv",
-      "rows": 677
+      "rows": 686
     },
     {
       "key": "unallocated",
@@ -159,7 +159,7 @@
       "key": "period_mismatch",
       "label": "Revenue period mismatch",
       "file": "EDA_Period_Mismatch.csv",
-      "rows": 1461
+      "rows": 1561
     },
     {
       "key": "data_quality",
@@ -171,13 +171,13 @@
       "key": "service_mix",
       "label": "Service mix",
       "file": "EDA_Service_Mix.csv",
-      "rows": 48
+      "rows": 49
     },
     {
       "key": "allocation_audit",
       "label": "Allocation audit trail",
       "file": "EDA_Allocation_Audit.csv",
-      "rows": 7299
+      "rows": 7978
     },
     {
       "key": "employee_cost",
@@ -201,7 +201,7 @@
       "key": "client_summary",
       "label": "Client summary",
       "file": "EDA_Client_Summary.csv",
-      "rows": 1134
+      "rows": 1217
     },
     {
       "key": "people_summary",
@@ -216,7 +216,7 @@
       "category": "Allocation",
       "severity": "high",
       "count": 5,
-      "value": "342.58",
+      "value": "379.08",
       "detail": "Internal time with no usable project or TL portfolio; parked in the Unallocated bucket"
     },
     {
@@ -225,7 +225,7 @@
       "severity": "medium",
       "count": 1816,
       "value": "4398812.03",
-      "detail": "1582 project names appeared on multiple rows; summing rather than first-wins recovers 231,354.00 on projects with logged hours"
+      "detail": "1582 project names appeared on multiple rows; summing rather than first-wins recovers 234,861.00 on projects with logged hours"
     },
     {
       "check": "Project names spanning multiple clients",
@@ -239,7 +239,7 @@
       "check": "Projects with zero contract revenue",
       "category": "Revenue",
       "severity": "medium",
-      "count": 364,
+      "count": 394,
       "value": "0.00",
       "detail": "Hours logged against projects whose amount is 0"
     },
@@ -248,15 +248,15 @@
       "category": "Revenue",
       "severity": "high",
       "count": 17,
-      "value": "46439.94",
+      "value": "46483.77",
       "detail": "In-window revenue attached to projects flagged deleted"
     },
     {
       "check": "Revenue on future projects",
       "category": "Revenue",
       "severity": "medium",
-      "count": 113,
-      "value": "177580.04",
+      "count": 121,
+      "value": "192420.13",
       "detail": "In-window revenue attached to projects not yet started"
     },
     {
@@ -271,8 +271,8 @@
       "check": "Reporting line matched by name, not email",
       "category": "People",
       "severity": "low",
-      "count": 295,
-      "value": "227.92",
+      "count": 321,
+      "value": "251.92",
       "detail": "Timesheet email missing from the master, so the reporting line came from a name match"
     },
     {
@@ -287,8 +287,8 @@
       "check": "Projects with revenue period mismatch",
       "category": "Revenue",
       "severity": "high",
-      "count": 1461,
-      "value": "1975955.56",
+      "count": 1561,
+      "value": "2027390.56",
       "detail": "Hours logged in window but the contract window does not overlap, or has no dates"
     }
   ],
@@ -296,12 +296,12 @@
     "with_department": {
       "file": "EDA_Unallocated_Hours.csv",
       "count": 5,
-      "hours": 342.583333
+      "hours": 379.083333
     },
     "without_department": {
       "file": "EDA_Unallocated_Hours_no_dept.csv",
       "count": 12,
-      "hours": 1682.416667,
+      "hours": 1855.583334,
       "detail": "Base unallocated register plus employees whose internal was previously spread by the department pool."
     }
   }

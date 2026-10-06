@@ -1,11 +1,11 @@
 check,category,severity,count,value,detail
-Unallocated internal hours,Allocation,high,5,342.58,Internal time with no usable project or TL portfolio; parked in the Unallocated bucket
-Duplicate project rows merged,Revenue,medium,1816,4398812.03,"1582 project names appeared on multiple rows; summing rather than first-wins recovers 231,354.00 on projects with logged hours"
+Unallocated internal hours,Allocation,high,5,379.08,Internal time with no usable project or TL portfolio; parked in the Unallocated bucket
+Duplicate project rows merged,Revenue,medium,1816,4398812.03,"1582 project names appeared on multiple rows; summing rather than first-wins recovers 234,861.00 on projects with logged hours"
 Project names spanning multiple clients,Revenue,medium,90,0.00,Same project name mapped to more than one client_legal_name
-Projects with zero contract revenue,Revenue,medium,364,0.00,Hours logged against projects whose amount is 0
-Revenue on deleted projects,Revenue,high,17,46439.94,In-window revenue attached to projects flagged deleted
-Revenue on future projects,Revenue,medium,113,177580.04,In-window revenue attached to projects not yet started
+Projects with zero contract revenue,Revenue,medium,394,0.00,Hours logged against projects whose amount is 0
+Revenue on deleted projects,Revenue,high,17,46483.77,In-window revenue attached to projects flagged deleted
+Revenue on future projects,Revenue,medium,121,192420.13,In-window revenue attached to projects not yet started
 Timesheet people missing from employee master,People,high,7,0.00,"Aditya Jagtap, Anand Verma, Anuj Sankhe, Elizabath Juliet, Nadir K, Rupali Raut, Soham Rajhans"
-"Reporting line matched by name, not email",People,low,295,227.92,"Timesheet email missing from the master, so the reporting line came from a name match"
+"Reporting line matched by name, not email",People,low,321,251.92,"Timesheet email missing from the master, so the reporting line came from a name match"
 Timesheet rows with no reporting line,People,medium,401,536.38,No reporting line could be resolved by email or by name
-Projects with revenue period mismatch,Revenue,high,1461,1975955.56,"Hours logged in window but the contract window does not overlap, or has no dates"
+Projects with revenue period mismatch,Revenue,high,1561,2027390.56,"Hours logged in window but the contract window does not overlap, or has no dates"
