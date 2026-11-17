@@ -19,6 +19,9 @@ from xml.etree import ElementTree
 
 
 ROOT = Path(__file__).parent
+# Sources are always read from ROOT; outputs go to OUT_DIR, which a read-only
+# host (the Vercel function) points at a temp folder.
+OUT_DIR = ROOT
 SHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 NAMESPACE = {"m": SHEET_NS}
 
@@ -599,7 +602,7 @@ PROJECT_HOURS_FIELDS = [
 
 
 def write_csv(name, fields, rows):
-    with (ROOT / name).open("w", newline="", encoding="utf-8") as handle:
+    with (OUT_DIR / name).open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
@@ -1720,7 +1723,7 @@ def main(argv=None):
                                    "detail": "Base unallocated register plus employees whose internal was previously spread by the department pool."},
         },
     }
-    (ROOT / OUT_MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (OUT_DIR / OUT_MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"Window {manifest['window']['start']} to {manifest['window']['end']} ({data['window_days']} days)")
     print(f"Logged {logged_hours:,.2f}h = client {client_hours:,.2f}h + internal {internal_hours:,.2f}h")

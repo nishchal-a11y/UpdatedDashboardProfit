@@ -13,6 +13,9 @@ from email.parser import BytesParser
 from email.policy import HTTP
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import window_bundle
 
 
 ROOT = Path(__file__).parent
@@ -74,6 +77,28 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if Path(self.path.split("?")[0]).suffix.casefold() in NO_STORE:
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
+
+    def do_GET(self):
+        # Same contract as the Vercel function in api/window.py.
+        if self.path.split("?")[0] != "/api/window":
+            super().do_GET()
+            return
+        query = parse_qs(urlparse(self.path).query)
+        try:
+            payload, _window = window_bundle.build_bundle(query.get("start", [""])[0], query.get("end", [""])[0])
+        except window_bundle.WindowError as error:
+            self.respond(400, {"ok": False, "error": str(error)})
+            return
+        except Exception as error:  # noqa: BLE001 - surface the failure to the browser
+            self.respond(500, {"ok": False, "error": f"{type(error).__name__}: {error}"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(payload)
 
     def do_POST(self):
         if self.path.split("?")[0] != "/api/regenerate":

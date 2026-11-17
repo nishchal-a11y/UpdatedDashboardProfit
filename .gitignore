@@ -1,1 +1,6 @@
 .wrangler/
+public/
+__pycache__/
+*.zip
+.vercel
+.DS_Store

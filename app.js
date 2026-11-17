@@ -144,10 +144,23 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-async function loadCsv(path) {
+/** Datasets for a custom window, as returned by /api/window. Null means the
+ *  full-history files served next to index.html. */
+let windowBundle = null;
+
+async function loadText(path) {
+  const name = path.split('?')[0];
+  if (windowBundle) {
+    if (!(name in windowBundle)) throw new Error(`Could not load ${name}`);
+    return windowBundle[name];
+  }
   const response = await fetch(path, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`Could not load ${path}`);
-  return Papa.parse(await response.text(), { header: true, skipEmptyLines: true }).data;
+  if (!response.ok) throw new Error(`Could not load ${name}`);
+  return response.text();
+}
+
+async function loadCsv(path) {
+  return Papa.parse(await loadText(path), { header: true, skipEmptyLines: true }).data;
 }
 
 async function loadCsvOptional(path) {
@@ -159,9 +172,7 @@ async function loadCsvOptional(path) {
 }
 
 async function loadJson(path) {
-  const response = await fetch(path, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`Could not load ${path}`);
-  return response.json();
+  return JSON.parse(await loadText(path));
 }
 
 /* ------------------------------------------------------------------ ingest */
@@ -3017,13 +3028,33 @@ const SOURCE_FIELDS = { projects: 'projectsFile', timesheet: 'timesheetFile', em
  * optional; the requested window always rides along so a rebuild keeps it.
  */
 async function rebuild(files = {}) {
-  const form = new FormData();
-  Object.entries(files).forEach(([field, file]) => form.append(field, file));
-  form.append('start', $('windowStart').value || '');
-  form.append('end', $('windowEnd').value || '');
-  const response = await fetch('/api/regenerate', { method: 'POST', body: form });
-  const result = await response.json();
-  if (!response.ok || !result.ok) throw new Error(result.error || 'Rebuild failed');
+  const start = $('windowStart').value || '';
+  const end = $('windowEnd').value || '';
+  let result = { ok: true, replaced: [] };
+  if (Object.keys(files).length) {
+    // Source uploads rewrite files on disk, which only the local server can do.
+    const form = new FormData();
+    Object.entries(files).forEach(([field, file]) => form.append(field, file));
+    form.append('start', start);
+    form.append('end', end);
+    const response = await fetch('/api/regenerate', { method: 'POST', body: form });
+    if (response.status === 404 || response.status === 405) {
+      throw new Error('Uploading sources only works on the local dashboard. On the hosted site, replace the files in GitHub and Vercel redeploys.');
+    }
+    result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || 'Rebuild failed');
+    windowBundle = null;
+  } else if (!start && !end) {
+    windowBundle = null; // Full history is the static build.
+  } else {
+    // A window is rebuilt server-side and read from the returned bundle, so
+    // nothing on disk changes and the hosted (read-only) site works too.
+    const response = await fetch(`/api/window?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, { cache: 'no-store' });
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok || !body?.ok) throw new Error(body?.error || `Window rebuild failed (HTTP ${response.status})`);
+    windowBundle = body.files;
+  }
   await loadAll();
   populateFilters();
   renderHeader();

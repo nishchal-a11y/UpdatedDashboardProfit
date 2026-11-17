@@ -40,6 +40,15 @@ python3 validate_eda.py
 
 It re-derives every accounting identity the dashboard depends on and exits non-zero if one breaks.
 
+### Hosted on Vercel
+
+The dashboard is also deployed to Vercel from the private GitHub repo. It works like the local one, with two differences:
+
+- **Window changes** call `GET /api/window?start=YYYY-MM-DD&end=YYYY-MM-DD`, a Python function (`api/window.py`, using `window_bundle.py`) that runs `build_eda.py` for that range in a temp folder and returns every dataset as gzipped JSON. Nothing on disk changes; "Full history" goes back to the prebuilt files. Dates outside the timesheet history (currently 2026-04-01 to 2026-11-16) are rejected. The local server answers the same endpoint, so both behave identically.
+- **Uploading sources** under Sources only works locally, because the hosted filesystem is read-only. To refresh data on Vercel, rebuild locally (`python3 build_eda.py`), commit the new source and `EDA_*` files, and push; Vercel redeploys.
+
+`vercel.json` builds a `public/` folder holding only the app files and generated `EDA_*` outputs. The raw sources (timesheet, projects, employee master, payroll, salary revisions) are bundled into the function alone and cannot be downloaded. The site is behind Vercel Authentication, so viewers must be signed in to the Vercel team; send anyone else a temporary share link from the project's Deployment Protection settings.
+
 ---
 
 ## 2. What is in the folder
