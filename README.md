@@ -58,6 +58,7 @@ It re-derives every accounting identity the dashboard depends on and exits non-z
 | `EDA_Client_Summary.csv` | Generated. One row per client: hours split, revenue, top project/team lead/service, project concentration. Backs the Client summary page's company baseline. |
 | `EDA_People_Summary.csv` | Generated. One row per person: clients and projects touched, top client and its share, biggest project, revenue share. Backs the People summary page's company medians. |
 | `EDA_Payroll_Cost_Monthly.csv` | Generated audit. One row per payroll employee-month, showing source `Total`, revision basis, calculated monthly cost, and whether an effective-dated correction was applied. |
+| `EDA_Unmapped_Payroll.csv` | Generated audit. Everyone who logged time in the window but has no payroll salary, with hours, reason and the closest payroll name. See [People without a salary](#people-without-a-salary). |
 | `Cost_Allocation_Flow.drawio` | Editable draw.io diagram of matching, salary-revision handling, date coverage, currency conversion, and row allocation. |
 | `EDA_*.csv`, `EDA_Manifest.json` | Generated. Deleting them is safe; rebuild recreates them. |
 
@@ -76,9 +77,26 @@ It re-derives every accounting identity the dashboard depends on and exits non-z
 - **Client summary** and **People summary** are pages of their own, grouped under "Summaries" at the foot of the rail and marked in indigo rather than the report's olive. Opening one replaces the scrolling report; the window and filter bar stay live, so a filter set carries across. They are also linkable directly as `index.html#clients` and `index.html#people-summary`.
   - **Client summary** clusters every client on revenue and delivered hours, shows payroll coverage and descends Client → Project → Team lead → People. Clustering is defined under [Client clustering](#client-clustering).
   - **People summary** shows who each person delivers for, the project taking most of their hours, and the rules that flag their mix. See [Insight rules](#insight-rules).
-  - **Monthly Comparisons** (`index.html#trends`) charts projects active, people logging time, hours (client vs internal) and recognised revenue month on month or week on week (Monday-start weeks), plus revenue vs payroll cost and gross margin. It reads `EDA_Trends.csv`, which always covers the full timesheet history, so the window and dimension filters do not apply; the FX rate and manual cost / hour do. Partial periods are faded and left out of the headline change. Monthly revenue is the full-history recognised revenue split by period (dated contracts by calendar days, undated ones by hours logged), so the months sum to the Overview figure.
+  - **Monthly Comparisons** (`index.html#trends`) charts projects active, people logging time, hours (client vs internal) and recognised revenue month on month or week on week (Monday-start weeks), plus revenue vs payroll cost and gross margin. It reads `EDA_Trends.csv`, which always covers the full timesheet history, so the window and dimension filters do not apply; the FX rate and manual cost / hour do. Only complete periods are compared: the current, in-progress month or week (and the first week if the data starts mid-week) is left out of the charts, table, deltas and export, so every MoM/WoW change is a full period against the previous full period. Monthly revenue is the full-history recognised revenue split by period (dated contracts by calendar days, undated ones by hours logged), so the months sum to the Overview figure.
 - **Sources** replaces any source file and rebuilds. The payroll workbook powers cost; salary revisions are shown for audit. Replace both through Sources when payroll data is refreshed.
 - Every table has an **Export** button that writes the current view as CSV.
+
+### People without a salary
+
+Anyone who logs time but cannot be matched to a payroll salary carries **no cost**, which pushes margins up. Every rebuild lists them in **`EDA_Unmapped_Payroll.csv`** in this folder (open it in Excel or Numbers). To check it:
+
+1. Rebuild first (`python3 build_eda.py`, or **Rebuild EDA & refresh** under Sources) so the list matches the current data. It follows the selected window; use "Full history" for everyone.
+2. Open `EDA_Unmapped_Payroll.csv`. Rows are sorted by `total_logged_hours`, so the biggest cost gaps come first, and `share_of_logged_hours_pct` shows how much of the company's time each one is.
+3. Read `reason` and fix the source it points to:
+
+| `reason` says | Usual fix |
+| --- | --- |
+| Employee number … from the master is not in the payroll export | Joined after the export, or the number differs between the master and payroll. Get a newer payroll export, or correct the number in the employee master. |
+| Employee number … is on the Dubai roll | DXB staff are paid outside the India (INR) payroll export. Add their cost another way, or use a manual cost / hour. |
+| Not in the employee master and no payroll row with this name | Add the person to `All Employees - Finanshels.com.xlsx`. If `closest_payroll_name` is filled in, that payroll record is probably them under a fuller name; use its `closest_payroll_employee_number`. |
+| On payroll … but no payroll month overlaps the window | Payroll stopped (leaver or transfer) while they kept logging time, or the timesheet name matched an old record. Check `employee_number` against `closest_payroll_employee_number`. |
+
+`closest_payroll_name` is only filled in when the first name matches and the surname appears in the payroll name, or the spelling is near-identical, so a blank means no safe guess. The same names appear in the dashboard under **People → Show: Payroll gaps**, and in `EDA_Manifest.json` under `cost.unmatched_employees`.
 
 ---
 

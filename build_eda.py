@@ -8,6 +8,7 @@ manifest describing the timesheet window and every data quality counter.
 import argparse
 import calendar
 import csv
+import difflib
 import json
 import re
 import zipfile
@@ -43,6 +44,7 @@ OUT_PAYROLL_COST_MONTHLY = "EDA_Payroll_Cost_Monthly.csv"
 OUT_CLIENT_SUMMARY = "EDA_Client_Summary.csv"
 OUT_PEOPLE_SUMMARY = "EDA_People_Summary.csv"
 OUT_TRENDS = "EDA_Trends.csv"
+OUT_UNMAPPED_PAYROLL = "EDA_Unmapped_Payroll.csv"
 OUT_MANIFEST = "EDA_Manifest.json"
 
 UNALLOCATED_ID = "__unallocated__"
@@ -1352,6 +1354,91 @@ def build_trends(data, cost_by_key, cost_by_name):
     return TREND_FIELDS, rows
 
 
+UNMAPPED_PAYROLL_FIELDS = [
+    "employee", "email", "employee_number", "in_employee_master", "department", "reporting_to",
+    "total_logged_hours", "client_hours", "internal_hours", "share_of_logged_hours_pct",
+    "first_logged", "last_logged", "reason", "closest_payroll_name", "closest_payroll_employee_number",
+]
+
+
+def closest_payroll_name(name, payroll_names):
+    """Suggest the payroll record most likely to be this person, or ("", "").
+
+    Payroll names often carry a middle name the timesheet drops ("Aditya Jagtap"
+    vs "Aditya Nitin Jagtap"), so the first rule is same first name plus the
+    surname anywhere in the payroll name. Otherwise only a near-identical
+    spelling counts; a loose fuzzy match pairs unrelated people.
+    """
+    tokens = [token for token in re.split(r"[\s.]+", clean_text(name).casefold()) if token]
+    if not tokens:
+        return "", ""
+    for key, (payroll_name, employee_id) in payroll_names.items():
+        candidate = [token for token in re.split(r"[\s.]+", payroll_name.casefold()) if token]
+        if len(tokens) > 1 and candidate and candidate[0] == tokens[0] and tokens[-1] in candidate[1:]:
+            return payroll_name, employee_id
+    close = difflib.get_close_matches(clean_key(name), list(payroll_names), n=1, cutoff=0.88)
+    return payroll_names[close[0]] if close else ("", "")
+
+
+def build_unmapped_payroll(data, utilisation_rows, cost_by_key, cost_by_name):
+    """Timesheet people the build could not price: no payroll cost in the window.
+
+    Each row says why the match failed and suggests the nearest payroll name, so
+    the fix (correct the employee number or name in the master, or add the person
+    to payroll) is obvious. Sorted by logged hours, biggest cost gap first.
+    """
+    payroll_names = {}
+    for employee_id, rows in cost_by_key.items():
+        for row in rows:
+            payroll_names.setdefault(clean_key(row["employee"]), (row["employee"], employee_id))
+    dates = defaultdict(list)
+    for entry in data["entries"]:
+        if entry["date"]:
+            dates[entry["employee"] or "Unknown"].append(entry["date"])
+    total_hours = sum(float(row["total_logged_hours"]) for row in utilisation_rows) or 1.0
+
+    out = []
+    for row in utilisation_rows:
+        if int(row["covered_payroll_days"]):
+            continue
+        employee, number = row["employee"], row["employee_number"]
+        by_number = cost_by_key.get(number, []) if number else []
+        by_name = cost_by_name.get(clean_key(employee), [])
+        if by_number or by_name:
+            months = sorted({payroll["month"] for payroll in (by_number or by_name)})
+            reason = (f"On payroll {months[0].strftime('%b %Y')}–{months[-1].strftime('%b %Y')}, "
+                      "but no payroll month overlaps the window")
+        elif row["in_employee_master"] != "yes":
+            reason = "Not in the employee master and no payroll row with this name"
+        elif number.upper().startswith("DXB"):
+            reason = f"Employee number {number} is on the Dubai roll; the payroll export covers the India pay group only"
+        elif number:
+            reason = f"Employee number {number} from the master is not in the payroll export"
+        else:
+            reason = "In the employee master without an employee number, and no payroll row with this name"
+        suggestion = closest_payroll_name(employee, payroll_names)
+        logged = dates.get(employee, [])
+        out.append({
+            "employee": employee,
+            "email": row["email"],
+            "employee_number": number,
+            "in_employee_master": row["in_employee_master"],
+            "department": row["department"],
+            "reporting_to": row["reporting_to"],
+            "total_logged_hours": row["total_logged_hours"],
+            "client_hours": row["client_hours"],
+            "internal_hours": row["internal_hours"],
+            "share_of_logged_hours_pct": f"{float(row['total_logged_hours']) / total_hours * 100:.2f}",
+            "first_logged": iso(min(logged)) if logged else "",
+            "last_logged": iso(max(logged)) if logged else "",
+            "reason": reason,
+            "closest_payroll_name": suggestion[0],
+            "closest_payroll_employee_number": suggestion[1],
+        })
+    out.sort(key=lambda item: -float(item["total_logged_hours"]))
+    return UNMAPPED_PAYROLL_FIELDS, out
+
+
 def carry_forward_payroll(payroll_by_id, through):
     """Repeat each current employee's latest payroll Total for months the payroll
     export does not reach yet, up to `through`.
@@ -1487,6 +1574,7 @@ def main(argv=None):
     client_summary_fields, client_summary_rows = build_client_summary(data, project_hours)
     people_summary_fields, people_summary_rows = build_people_summary(data, project_hours, utilisation_rows)
     trend_fields, trend_rows = build_trends(data, costs, costs_by_name)
+    unmapped_fields, unmapped_rows = build_unmapped_payroll(data, utilisation_rows, costs, costs_by_name)
 
     # ---- reconciliation counters
     logged_hours = sum(entry["hours"] for entry in data["entries"])
@@ -1554,6 +1642,7 @@ def main(argv=None):
         OUT_CLIENT_SUMMARY: write_csv(OUT_CLIENT_SUMMARY, client_summary_fields, client_summary_rows),
         OUT_PEOPLE_SUMMARY: write_csv(OUT_PEOPLE_SUMMARY, people_summary_fields, people_summary_rows),
         OUT_TRENDS: write_csv(OUT_TRENDS, trend_fields, trend_rows),
+        OUT_UNMAPPED_PAYROLL: write_csv(OUT_UNMAPPED_PAYROLL, unmapped_fields, unmapped_rows),
     }
     counts[OUT_EMPLOYEE_COST] = write_csv(OUT_EMPLOYEE_COST, utilisation_fields, utilisation_rows)
     revision_fields = ["employee_number", "employee", "effective_from", "previous_regular_salary_inr", "revised_regular_salary_inr"]
@@ -1613,6 +1702,7 @@ def main(argv=None):
             {"key": "client_summary", "label": "Client summary", "file": OUT_CLIENT_SUMMARY, "rows": counts[OUT_CLIENT_SUMMARY]},
             {"key": "people_summary", "label": "People summary", "file": OUT_PEOPLE_SUMMARY, "rows": counts[OUT_PEOPLE_SUMMARY]},
             {"key": "trends", "label": "Monthly and weekly trends", "file": OUT_TRENDS, "rows": counts[OUT_TRENDS]},
+            {"key": "unmapped_payroll", "label": "People without a payroll salary", "file": OUT_UNMAPPED_PAYROLL, "rows": counts[OUT_UNMAPPED_PAYROLL]},
         ],
         "trends": {
             "basis": "Full timesheet history regardless of the selected window",

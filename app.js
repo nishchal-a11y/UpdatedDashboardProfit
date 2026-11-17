@@ -2331,8 +2331,10 @@ function legendItems(items) {
   return items.map((item) => `<span class="legend-item"><i style="background:${item.color}"></i>${esc(item.label)}</span>`).join('');
 }
 
-function trendRowsForGrain() {
-  return state.trends.filter((row) => row.grain === state.trendGrain);
+/** Only complete periods are compared: an in-progress month or week (or one the
+ *  data only partly covers) would read as a fall against a full one. */
+function trendRowsForGrain({ includePartial = false } = {}) {
+  return state.trends.filter((row) => row.grain === state.trendGrain && (includePartial || !row.partial));
 }
 
 const TREND_METRICS = [
@@ -2355,10 +2357,9 @@ function renderTrends() {
     return;
   }
   const profits = rows.map(profitForPeriod);
-  const complete = rows.map((row, index) => ({ row, index })).filter((item) => !item.row.partial);
-  const current = complete.at(-1);
-  const previous = complete.at(-2);
-  const partialRows = rows.filter((row) => row.partial);
+  const current = { row: rows.at(-1), index: rows.length - 1 };
+  const previous = rows.length > 1 ? { row: rows.at(-2), index: rows.length - 2 } : null;
+  const partialRows = trendRowsForGrain({ includePartial: true }).filter((row) => row.partial);
 
   // ---- headline: latest complete period against the one before it
   const cards = TREND_METRICS.map((metric) => {
@@ -2375,7 +2376,7 @@ function renderTrends() {
     <em>${marginNow ? `${money(marginNow.profit)} gross profit` : lastProfit ? `Last costed: ${esc(rows[lastProfit.index].label)} · ${pct(lastProfit.profit.margin)}` : 'No payroll for this period'}</em></small></div>`);
   $('trendStrip').innerHTML = cards.join('');
   $('trendCompareNote').textContent = current && previous
-    ? `${current.row.label} compared with ${previous.row.label}.${partialRows.length ? ` ${partialRows.map((row) => `${row.label} (${row.dataDays} of ${row.calendarDays} days)`).join(', ')} ${partialRows.length > 1 ? 'are' : 'is'} partial, so ${partialRows.length > 1 ? 'they are' : 'it is'} faded in the charts and left out of the headline change.` : ''}`
+    ? `Latest complete ${unit}, ${current.row.label}, compared with ${previous.row.label}. Every change on this page is against the previous complete ${unit}.${partialRows.length ? ` Not shown because the data covers only part of the ${unit}: ${partialRows.map((row) => `${row.label} (${row.dataDays} of ${row.calendarDays} days)`).join(', ')}.` : ''}`
     : 'Need at least two complete periods to compare.';
 
   // ---- small multiples

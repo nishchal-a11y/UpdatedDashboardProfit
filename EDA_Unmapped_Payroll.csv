@@ -1,0 +1,36 @@
+employee,email,employee_number,in_employee_master,department,reporting_to,total_logged_hours,client_hours,internal_hours,share_of_logged_hours_pct,first_logged,last_logged,reason,closest_payroll_name,closest_payroll_employee_number
+Ridhika Tiwari,ridhika@finanshels.com,BLR194,yes,Compliance,Krishna Subash Nair,1262.921944,943.655278,319.266667,1.10,2026-04-01,2026-11-16,Employee number BLR194 from the master is not in the payroll export,,
+Monisha Jaganathan,monisha@finanshels.com,BLR246,yes,Compliance,Krishna Subash Nair,1208.333333,0.000000,1208.333333,1.05,2026-04-01,2026-11-16,Employee number BLR246 from the master is not in the payroll export,,
+Abdul Afeef,afeef@finanshels.com,DXB93,yes,Tax,Shamna P K,1174.000000,0.000000,1174.000000,1.02,2026-04-01,2026-11-13,"On payroll Jan 2026–Jan 2026, but no payroll month overlaps the window",ABDUL AFEEF,BLR135
+Tanima Das,tanima@finanshels.com,BLR265,yes,Compliance,Krishna Subash Nair,1165.033889,526.783889,638.250000,1.01,2026-04-01,2026-11-16,Employee number BLR265 from the master is not in the payroll export,,
+Lisha Jose,lisha@finanshels.com,BLR264,yes,Compliance,Krishna Subash Nair,1163.824722,600.991389,562.833333,1.01,2026-04-01,2026-11-16,Employee number BLR264 from the master is not in the payroll export,,
+Sharan Kumar,sharan@finanshels.com,BLR243,yes,Compliance,Krishna Subash Nair,1142.000000,0.000000,1142.000000,0.99,2026-04-01,2026-11-13,Employee number BLR243 from the master is not in the payroll export,,
+Simanti Sarkar,simanti@finanshels.com,BLR228,yes,Compliance,Krishna Subash Nair,1115.000000,199.750000,915.250000,0.97,2026-04-01,2026-11-16,Employee number BLR228 from the master is not in the payroll export,,
+adithyan k,adithyan@finanshels.com,BLR281,yes,Finance,Bhagyalakshmi KP,988.000000,0.000000,988.000000,0.86,2026-04-01,2026-09-30,Employee number BLR281 from the master is not in the payroll export,,
+Firdous Jehan,firdous@finanshels.com,BLR262,yes,Compliance,Krishna Subash Nair,857.000000,39.000000,818.000000,0.75,2026-04-01,2026-10-30,"On payroll Jan 2026–Jan 2026, but no payroll month overlaps the window",FIRDOUS JEHAN,BLR211
+Varsha Soni,varsha@finanshels.com,BLR175,yes,Finance,Shahul Mohammed,850.162222,850.162222,0.000000,0.74,2026-06-04,2026-11-13,Employee number BLR175 from the master is not in the payroll export,,
+Munees KV,munees@finanshels.com,DXB75,yes,Finance Operations,SUHAIL KANJIRATHPARAMB YOUSEF,836.933333,218.383333,618.550000,0.73,2026-04-01,2026-08-31,Employee number DXB75 is on the Dubai roll; the payroll export covers the India pay group only,,
+Krishna Subash,krishna@finanshels.com,DXB67,yes,Compliance,SUHAIL KANJIRATHPARAMB YOUSEF,812.752500,301.219167,511.533333,0.71,2026-04-01,2026-10-10,Employee number DXB67 is on the Dubai roll; the payroll export covers the India pay group only,,
+Soham Rajhans,soham@finanshels.com,,no,,,608.000000,271.700000,336.300000,0.53,2026-04-01,2026-08-07,Not in the employee master and no payroll row with this name,SOHAM DATTAPRASAD RAJHANS,BLR156
+Anusree P C,anusree@finanshels.com,BLR152,yes,HR & TA,Brijen Prakash Brahmbhatt,532.416667,0.000000,532.416667,0.46,2026-08-03,2026-11-16,Employee number BLR152 from the master is not in the payroll export,,
+Aditya Jagtap,aditya@finanshels.com,,no,,,492.716667,441.383333,51.333333,0.43,2026-04-01,2026-07-30,Not in the employee master and no payroll row with this name,Aditya Nitin Jagtap,BLR153
+Jayesh Kriplani,jayesh@finanshels.com,BLR239,yes,Finance,Shahul Mohammed,465.238889,458.236111,7.002778,0.41,2026-06-04,2026-09-14,Employee number BLR239 from the master is not in the payroll export,,
+Jithin Radhakrishnan,jithin@finanshels.com,BLR313,yes,Finance Operations,SANTO .,370.750000,232.000000,138.750000,0.32,2026-08-17,2026-10-29,Employee number BLR313 from the master is not in the payroll export,,
+Mohammad Sihan,sihan@finanshels.com,,no,,,257.333333,164.083333,93.250000,0.22,2026-10-01,2026-11-16,Not in the employee master and no payroll row with this name,,
+Anwin George,anwin@finanshels.com,,no,,,256.000000,49.333333,206.666667,0.22,2026-10-01,2026-11-13,Not in the employee master and no payroll row with this name,,
+Sharmin Rajan,sharmin@finanshels.com,,no,,,248.000000,0.000000,248.000000,0.22,2026-10-01,2026-11-16,Not in the employee master and no payroll row with this name,,
+Hiren Rattan,hiren@finanshels.com,,no,,,170.833333,86.250000,84.583333,0.15,2026-04-01,2026-05-26,"On payroll Jan 2026–Mar 2026, but no payroll month overlaps the window",HIREN RATTAN,BLR245
+Shifin Sadik,shifinsadik@finanshels.com,,no,,,168.000000,0.000000,168.000000,0.15,2026-10-19,2026-11-16,Not in the employee master and no payroll row with this name,,
+Safwan KP,safwan@finanshels.com,DXB84,yes,Finance,Shahul Mohammed,167.609722,164.609722,3.000000,0.15,2026-06-10,2026-07-29,Employee number DXB84 is on the Dubai roll; the payroll export covers the India pay group only,,
+Afna PP,afna@finanshels.com,,no,,,167.583333,66.833333,100.750000,0.15,2026-04-01,2026-04-30,"On payroll Jan 2026–Mar 2026, but no payroll month overlaps the window",AFNA P P,BLR138
+Abhinand CP,abhinand@finanshels.com,BLR160,yes,HR & TA,Brijen Prakash Brahmbhatt,129.166667,0.000000,129.166667,0.11,2026-08-06,2026-09-02,Employee number BLR160 from the master is not in the payroll export,,
+Shebin Mohammed,shebin@finanshels.com,,no,,,123.033333,17.000000,106.033333,0.11,2026-04-01,2026-04-30,Not in the employee master and no payroll row with this name,,
+Alan jose,alan@finanshels.com,,no,,,120.000000,0.000000,120.000000,0.10,2026-04-01,2026-04-24,"On payroll Jan 2026–Mar 2026, but no payroll month overlaps the window",ALAN JOSE,BLR164
+Preetha A,preetha@finanshels.com,,no,,,117.416667,78.916667,38.500000,0.10,2026-10-28,2026-11-16,Not in the employee master and no payroll row with this name,,
+MUHAMMED RIHAN PR,rihan@finanshels.com,,no,,,97.750000,53.833333,43.916667,0.09,2026-04-01,2026-04-17,"On payroll Mar 2026–Mar 2026, but no payroll month overlaps the window",Muhammed Rihan PR,BLR280
+Malini S,malini@finanshels.com,,no,,,64.250000,53.500000,10.750000,0.06,2026-11-04,2026-11-13,Not in the employee master and no payroll row with this name,,
+Divya Mangtani,divyamangtani@finanshels.com,BLR267,yes,HR & TA,Brijen Prakash Brahmbhatt,49.500000,0.000000,49.500000,0.04,2026-08-12,2026-08-25,Employee number BLR267 from the master is not in the payroll export,,
+Gautam Sanoj,gautam@finanshels.com,DXB54,yes,Tax,SUHAIL KANJIRATHPARAMB YOUSEF,40.000000,0.000000,40.000000,0.03,2026-04-01,2026-11-13,Employee number DXB54 is on the Dubai roll; the payroll export covers the India pay group only,,
+Payal Vyas,payalvyas@finanshels.com,,no,,,24.000000,4.000000,20.000000,0.02,2026-11-12,2026-11-16,Not in the employee master and no payroll row with this name,,
+Test TM Member,testtm@finanshels.com,,no,,,0.516111,0.516111,0.000000,0.00,2026-06-02,2026-06-04,Not in the employee master and no payroll row with this name,,
+Rahul Tiwari,rahultiwari@finanshels.com,,no,,,0.000000,0.000000,0.000000,0.00,2026-11-12,2026-11-16,Not in the employee master and no payroll row with this name,,

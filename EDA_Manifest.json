@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-17T11:57:05",
+  "generated_at": "2026-11-17T13:02:24",
   "window": {
     "start": "2026-04-01",
     "end": "2026-11-16",
@@ -132,8 +132,8 @@
   },
   "revenue_basis_mix": {
     "Out-of-window full": 2553,
-    "Undated full": 2006,
-    "Prorated": 2644
+    "Prorated": 2644,
+    "Undated full": 2006
   },
   "allocation_method_hours": {
     "AM Weighted Allocation": 3323.8331,
@@ -233,6 +233,12 @@
       "label": "Monthly and weekly trends",
       "file": "EDA_Trends.csv",
       "rows": 42
+    },
+    {
+      "key": "unmapped_payroll",
+      "label": "People without a payroll salary",
+      "file": "EDA_Unmapped_Payroll.csv",
+      "rows": 35
     }
   ],
   "trends": {
