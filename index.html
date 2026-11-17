@@ -22,6 +22,7 @@
     <div class="rail-foot">
       <button class="cost-chip" id="costChip" type="button" aria-label="View employee payroll coverage"><span class="dot"></span><span id="costChipText">Cost source not loaded</span></button>
       <small id="railStamp"></small>
+      <small class="signed-in" id="signedIn" hidden><span id="signedInEmail"></span> · <a href="/api/auth/logout">Sign out</a></small>
     </div>
   </aside>
 
@@ -345,6 +346,6 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/lucide@1.52.0"></script>
   <div class="chart-tip" id="chartTip" role="tooltip" hidden></div>
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>

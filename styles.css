@@ -776,3 +776,5 @@ table.grid.eda-pivot tbody tr td.eda-level {
 .chart-tip div strong { font-variant-numeric: tabular-nums; font-weight: 600; }
 .trend-table td, .trend-table th { white-space: nowrap; }
 .trend-table tr.partial-row td { color: var(--ink-2); }
+.signed-in { color: var(--ink-3); font-size: 11px; overflow-wrap: anywhere; }
+.signed-in a { color: var(--accent); font-weight: 600; text-decoration: none; }

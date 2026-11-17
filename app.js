@@ -3178,7 +3178,22 @@ async function loadAll() {
   ingestCosts(costs);
 }
 
+/** Hosted only: the Google sign-in middleware answers /api/auth/me. */
+async function showSignedIn() {
+  try {
+    const response = await fetch('/api/auth/me', { cache: 'no-store' });
+    if (!response.ok) return;
+    const { email } = await response.json();
+    if (!email) return;
+    $('signedInEmail').textContent = email;
+    $('signedIn').hidden = false;
+  } catch (error) {
+    // Local server: no sign-in, nothing to show.
+  }
+}
+
 async function init() {
+  showSignedIn();
   try {
     await loadAll();
     populateFilters();
