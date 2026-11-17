@@ -5,6 +5,7 @@ writes them into the project folder and re-runs build_eda.py.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -15,7 +16,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parent
-PORT = 8765
+PORT = int(os.environ.get("PORT", 8765))
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 
 # field name -> (destination filename, allowed extensions)
