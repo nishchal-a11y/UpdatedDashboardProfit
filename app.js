@@ -3044,8 +3044,10 @@ async function rebuild(files = {}) {
     result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.error || 'Rebuild failed');
     windowBundle = null;
-  } else if (!start && !end) {
-    windowBundle = null; // Full history is the static build.
+  } else if ((!start && !end) || (start === $('windowStart').min && end === $('windowEnd').max)) {
+    // The full history is already prebuilt, so skip a rebuild that would
+    // return the same thing.
+    windowBundle = null;
   } else {
     // A window is rebuilt server-side and read from the returned bundle, so
     // nothing on disk changes and the hosted (read-only) site works too.
@@ -3087,7 +3089,7 @@ function bindWindow() {
     const end = $('windowEnd').value;
     if (!start || !end) { setWindowStatus('Pick both a start and an end date.', 'failure'); return; }
     if (start > end) { setWindowStatus('Start date must be on or before the end date.', 'failure'); return; }
-    apply(start, end, `Rebuilding for ${start} → ${end}...`);
+    apply(start, end, `Rebuilding for ${start} → ${end}... this can take up to a minute for a long range.`);
   });
 
   $('fullWindow').addEventListener('click', () => apply('', '', 'Rebuilding for the full timesheet history...'));
