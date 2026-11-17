@@ -1,11 +1,11 @@
 check,category,severity,count,value,detail
-Unallocated internal hours,Allocation,high,5,342.58,Internal time with no usable project or TL portfolio; parked in the Unallocated bucket
-Duplicate project rows merged,Revenue,medium,1816,4398812.03,"1582 project names appeared on multiple rows; summing rather than first-wins recovers 231,354.00 on projects with logged hours"
-Project names spanning multiple clients,Revenue,medium,90,0.00,Same project name mapped to more than one client_legal_name
-Projects with zero contract revenue,Revenue,medium,364,0.00,Hours logged against projects whose amount is 0
-Revenue on deleted projects,Revenue,high,17,46439.94,In-window revenue attached to projects flagged deleted
-Revenue on future projects,Revenue,medium,113,177580.04,In-window revenue attached to projects not yet started
-Timesheet people missing from employee master,People,high,7,0.00,"Aditya Jagtap, Anand Verma, Anuj Sankhe, Elizabath Juliet, Nadir K, Rupali Raut, Soham Rajhans"
-"Reporting line matched by name, not email",People,low,295,227.92,"Timesheet email missing from the master, so the reporting line came from a name match"
-Timesheet rows with no reporting line,People,medium,401,536.38,No reporting line could be resolved by email or by name
-Projects with revenue period mismatch,Revenue,high,1461,1975955.56,"Hours logged in window but the contract window does not overlap, or has no dates"
+Unallocated internal hours,Allocation,high,8,1980.08,Internal time with no usable project or TL portfolio; parked in the Unallocated bucket
+Duplicate project rows merged,Revenue,medium,3644,8448995.53,"3226 project names appeared on multiple rows; summing rather than first-wins recovers 1,281,668.67 on projects with logged hours"
+Project names spanning multiple clients,Revenue,medium,91,0.00,Same project name mapped to more than one client_legal_name
+Projects with zero contract revenue,Revenue,medium,1026,0.00,Hours logged against projects whose amount is 0
+Revenue on deleted projects,Revenue,high,246,876866.39,In-window revenue attached to projects flagged deleted
+Revenue on future projects,Revenue,medium,415,1239502.22,In-window revenue attached to projects not yet started
+Timesheet people missing from employee master,People,high,28,0.00,"Aditya Jagtap, Afna PP, Alan jose, Anand Verma, Anuj Sankhe, Anwin George, Aswin Suresh, Elizabath Juliet, Hiren Rattan, MUHAMMED RIHAN PR, Malini S, Mohammad Sihan, Mohit Kapoor, Nadir K, Payal Vyas, Preetha A, Rahul Tiwari, Rupali Raut, Sandeep Goyal, Sayam Kalra, Sharmin Rajan, Shazin Papparath, Shebin Mohammed, Shifin Sadik, Soham Rajhans, Test TM Member, Vansh Agarwal, Vishnu JS"
+"Reporting line matched by name, not email",People,low,1070,1219.50,"Timesheet email missing from the master, so the reporting line came from a name match"
+Timesheet rows with no reporting line,People,medium,5877,8368.35,No reporting line could be resolved by email or by name
+Projects with revenue period mismatch,Revenue,high,4559,5242774.95,"Hours logged in window but the contract window does not overlap, or has no dates"

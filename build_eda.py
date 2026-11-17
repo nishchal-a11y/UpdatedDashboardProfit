@@ -42,6 +42,7 @@ OUT_SALARY_REVISIONS = "EDA_Salary_Revisions.csv"
 OUT_PAYROLL_COST_MONTHLY = "EDA_Payroll_Cost_Monthly.csv"
 OUT_CLIENT_SUMMARY = "EDA_Client_Summary.csv"
 OUT_PEOPLE_SUMMARY = "EDA_People_Summary.csv"
+OUT_TRENDS = "EDA_Trends.csv"
 OUT_MANIFEST = "EDA_Manifest.json"
 
 UNALLOCATED_ID = "__unallocated__"
@@ -445,6 +446,8 @@ def build(requested_window=None):
             "general_task": clean_text(item.get("general_task_name")),
         })
 
+    # Trends always describe the whole history, so they keep the unfiltered rows.
+    all_entries = list(entries)
     dates = [entry["date"] for entry in entries if entry["date"]]
     data_start, data_end = (min(dates), max(dates)) if dates else (None, None)
     requested_start, requested_end = requested_window or (None, None)
@@ -560,6 +563,7 @@ def build(requested_window=None):
         "projects": projects,
         "records": records,
         "entries": entries,
+        "all_entries": all_entries,
         "actual": actual,
         "internal": internal,
         "employees": employees,
@@ -1185,7 +1189,7 @@ def build_payroll_cost_monthly(payroll_rows):
     fields = ["employee_number", "employee", "payroll_month", "payroll_total_inr",
               "calculated_month_cost_inr", "calculated_month_cost_aed", "revision_applied",
               "revision_effective_from", "previous_regular_salary_inr", "revised_regular_salary_inr",
-              "previous_month_cost_inr", "revised_month_cost_inr", "decision"]
+              "previous_month_cost_inr", "revised_month_cost_inr", "source", "decision"]
     rows = []
     for payroll in payroll_rows:
         month = payroll["month"]
@@ -1206,6 +1210,7 @@ def build_payroll_cost_monthly(payroll_rows):
             "revised_regular_salary_inr": f"{schedule['revised_salary']:.2f}" if schedule else "",
             "previous_month_cost_inr": f"{schedule['previous_month_cost']:.2f}" if schedule else "",
             "revised_month_cost_inr": f"{schedule['revised_month_cost']:.2f}" if schedule else "",
+            "source": f"Carried forward from {payroll['carried_from'].strftime('%b %Y')}" if payroll.get("carried_from") else "Payroll export",
             "decision": (
                 "Applied effective-date revision to stale prior-salary Total" if applied
                 else "Retained payroll Total; revision already reflected or Total differs from prior salary"
@@ -1213,6 +1218,167 @@ def build_payroll_cost_monthly(payroll_rows):
             ),
         })
     return fields, rows
+
+
+TREND_FIELDS = [
+    "grain", "period_key", "label", "period_start", "period_end", "calendar_days", "data_days", "partial",
+    "timesheet_rows", "logged_hours", "client_hours", "internal_hours", "approved_hours",
+    "projects_active", "clients_active", "people_active",
+    "revenue", "revenue_prorated", "revenue_effort",
+    "payroll_cost_inr", "payroll_cost_aed", "payroll_days_covered", "costed_hours", "costed_people",
+]
+
+
+def trend_periods(start, end):
+    """Calendar months and Monday-start weeks spanning [start, end], clipped to the data."""
+    periods = []
+    cursor = date(start.year, start.month, 1)
+    while cursor <= end:
+        last = date(cursor.year, cursor.month, calendar.monthrange(cursor.year, cursor.month)[1])
+        periods.append(("month", cursor.strftime("%Y-%m"), cursor.strftime("%b %Y"), cursor, last))
+        cursor = last + timedelta(days=1)
+    cursor = start - timedelta(days=start.weekday())
+    while cursor <= end:
+        last = cursor + timedelta(days=6)
+        iso_year, iso_week, _ = cursor.isocalendar()
+        periods.append(("week", f"{iso_year}-W{iso_week:02d}", f"W{iso_week:02d} · {cursor.strftime('%d %b')}", cursor, last))
+        cursor = last + timedelta(days=1)
+    return periods
+
+
+def build_trends(data, cost_by_key, cost_by_name):
+    """Month-on-month and week-on-week series over the full timesheet history.
+
+    The selected window is ignored on purpose: a trend needs every period. Revenue
+    is decomposed so the periods sum to the full-history in-window revenue: dated
+    contracts are prorated by calendar days that fall in each period, and undated
+    or out-of-window contracts are spread by the share of their hours logged in it.
+    """
+    entries = [entry for entry in data["all_entries"] if entry["date"]]
+    if not entries:
+        return TREND_FIELDS, []
+    projects = data["projects"]
+    start = min(entry["date"] for entry in entries)
+    end = max(entry["date"] for entry in entries)
+
+    project_hours = defaultdict(float)
+    project_rows = Counter()
+    for entry in entries:
+        if entry["project_key"] in projects:
+            project_hours[entry["project_key"]] += entry["hours"]
+            project_rows[entry["project_key"]] += 1
+
+    def payroll_rows_for(entry):
+        rows = cost_by_key.get(entry["employee_number"], [])
+        for candidate in (entry["employee_master_name"], entry["employee"]):
+            if rows:
+                break
+            rows = cost_by_name.get(clean_key(candidate), [])
+        return rows
+
+    payroll_months = {row["month"] for rows in cost_by_key.values() for row in rows}
+    # Salary accrues whether or not someone logs time in a given week, so cost
+    # covers everyone in the timesheet population; that keeps weeks and months
+    # summing to the same total.
+    population = {}
+    for entry in entries:
+        population.setdefault(entry["employee"] or "Unknown", payroll_rows_for(entry))
+
+    rows = []
+    for grain, key, label, period_start, period_end in trend_periods(start, end):
+        clip_start, clip_end = max(period_start, start), min(period_end, end)
+        inside = [entry for entry in entries if clip_start <= entry["date"] <= clip_end]
+        logged = sum(entry["hours"] for entry in inside)
+        client_entries = [entry for entry in inside if entry["project_key"] in projects]
+        client = sum(entry["hours"] for entry in client_entries)
+        approved = sum(entry["hours"] for entry in inside if clean_text(entry["status"]).casefold() == "approved")
+        active_projects = {entry["project_key"] for entry in client_entries if entry["hours"] > 0}
+
+        prorated = effort = 0.0
+        period_hours = defaultdict(float)
+        period_rows = Counter()
+        for entry in client_entries:
+            period_hours[entry["project_key"]] += entry["hours"]
+            period_rows[entry["project_key"]] += 1
+        for project_id in project_hours:
+            record = projects[project_id]
+            p_start, p_end, revenue = record["start"], record["end"], record["contract_revenue"]
+            if p_start and p_end and p_end >= p_start and p_end >= start and p_start <= end:
+                overlap = (min(p_end, clip_end) - max(p_start, clip_start)).days + 1
+                if overlap > 0:
+                    prorated += revenue * overlap / ((p_end - p_start).days + 1)
+            elif project_hours[project_id] > 0:
+                effort += revenue * period_hours.get(project_id, 0.0) / project_hours[project_id]
+            elif project_rows[project_id]:
+                effort += revenue * period_rows.get(project_id, 0) / project_rows[project_id]
+
+        hours_by_person = defaultdict(float)
+        for entry in inside:
+            hours_by_person[entry["employee"] or "Unknown"] += entry["hours"]
+        cost_inr, costed_hours, costed_people = 0.0, 0.0, 0
+        for person, payroll_rows in population.items():
+            cost, covered, _ = payroll_cost_for_window(payroll_rows, clip_start, clip_end)
+            if covered:
+                cost_inr += cost
+                costed_hours += hours_by_person.get(person, 0.0)
+                costed_people += 1
+        days_covered = sum(1 for offset in range((clip_end - clip_start).days + 1)
+                           if (clip_start + timedelta(days=offset)).replace(day=1) in payroll_months)
+
+        calendar_days = (period_end - period_start).days + 1
+        data_days = (clip_end - clip_start).days + 1
+        rows.append({
+            "grain": grain, "period_key": key, "label": label,
+            "period_start": iso(period_start), "period_end": iso(period_end),
+            "calendar_days": calendar_days, "data_days": data_days,
+            "partial": "yes" if data_days < calendar_days else "no",
+            "timesheet_rows": len(inside),
+            "logged_hours": f"{logged:.6f}",
+            "client_hours": f"{client:.6f}",
+            "internal_hours": f"{logged - client:.6f}",
+            "approved_hours": f"{approved:.6f}",
+            "projects_active": len(active_projects),
+            "clients_active": len({projects[pid]["client_id"] for pid in active_projects}),
+            "people_active": sum(1 for hours in hours_by_person.values() if hours > 0),
+            "revenue": f"{prorated + effort:.2f}",
+            "revenue_prorated": f"{prorated:.2f}",
+            "revenue_effort": f"{effort:.2f}",
+            "payroll_cost_inr": f"{cost_inr:.2f}",
+            "payroll_cost_aed": f"{cost_inr * INR_TO_AED:.2f}",
+            "payroll_days_covered": days_covered,
+            "costed_hours": f"{costed_hours:.6f}",
+            "costed_people": costed_people,
+        })
+    return TREND_FIELDS, rows
+
+
+def carry_forward_payroll(payroll_by_id, through):
+    """Repeat each current employee's latest payroll Total for months the payroll
+    export does not reach yet, up to `through`.
+
+    Only people with a row in the latest payroll month are carried, so leavers
+    stay off the books. The raw Total is reused, so the salary-revision rule in
+    payroll_month_cost still applies revisions dated after the last export.
+    Returns (last payroll month, carried months, carried rows).
+    """
+    months = {row["month"] for rows in payroll_by_id.values() for row in rows}
+    if not months or not through:
+        return None, [], 0
+    last = max(months)
+    carried_months = []
+    cursor = date(last.year + (last.month == 12), last.month % 12 + 1, 1)
+    while cursor <= through:
+        carried_months.append(cursor)
+        cursor = date(cursor.year + (cursor.month == 12), cursor.month % 12 + 1, 1)
+    carried = 0
+    for rows in payroll_by_id.values():
+        latest = max(rows, key=lambda row: row["month"])
+        if latest["month"] != last:
+            continue
+        for month in carried_months:
+            rows.append({**latest, "month": month, "carried_from": last})
+            carried += 1
+    return last, carried_months, carried
 
 
 def load_payroll_costs():
@@ -1283,6 +1449,14 @@ def main(argv=None):
     costs, costs_by_name, salary_revisions, cost_meta = load_payroll_costs()
     data = build((start, end) if start or end else None)
     data["cost_loaded"] = cost_meta["loaded"]
+    # Payroll exports lag the timesheet; carry the latest month forward to the
+    # last logged date so every period in the history has a cost.
+    last_payroll, carried_months, carried_rows = carry_forward_payroll(costs, data["data_end"])
+    cost_meta["last_payroll_month"] = iso(last_payroll)
+    cost_meta["carried_forward_months"] = [month.strftime("%Y-%m") for month in carried_months]
+    cost_meta["carried_forward_rows"] = carried_rows
+    if carried_months:
+        cost_meta["basis"] += f"; {last_payroll.strftime('%b %Y')} carried forward through {carried_months[-1].strftime('%b %Y')}"
     payroll_months = {row["month"] for rows in costs.values() for row in rows}
     cost_meta["covered_days"] = 0
     if data["window_start"] and data["window_end"]:
@@ -1312,6 +1486,7 @@ def main(argv=None):
     audit_fields, audit_rows = build_allocation_audit(data)
     client_summary_fields, client_summary_rows = build_client_summary(data, project_hours)
     people_summary_fields, people_summary_rows = build_people_summary(data, project_hours, utilisation_rows)
+    trend_fields, trend_rows = build_trends(data, costs, costs_by_name)
 
     # ---- reconciliation counters
     logged_hours = sum(entry["hours"] for entry in data["entries"])
@@ -1378,6 +1553,7 @@ def main(argv=None):
         OUT_ALLOCATION_AUDIT: write_csv(OUT_ALLOCATION_AUDIT, audit_fields, audit_rows),
         OUT_CLIENT_SUMMARY: write_csv(OUT_CLIENT_SUMMARY, client_summary_fields, client_summary_rows),
         OUT_PEOPLE_SUMMARY: write_csv(OUT_PEOPLE_SUMMARY, people_summary_fields, people_summary_rows),
+        OUT_TRENDS: write_csv(OUT_TRENDS, trend_fields, trend_rows),
     }
     counts[OUT_EMPLOYEE_COST] = write_csv(OUT_EMPLOYEE_COST, utilisation_fields, utilisation_rows)
     revision_fields = ["employee_number", "employee", "effective_from", "previous_regular_salary_inr", "revised_regular_salary_inr"]
@@ -1436,7 +1612,14 @@ def main(argv=None):
             {"key": "payroll_cost_monthly", "label": "Monthly payroll cost audit", "file": OUT_PAYROLL_COST_MONTHLY, "rows": counts[OUT_PAYROLL_COST_MONTHLY]},
             {"key": "client_summary", "label": "Client summary", "file": OUT_CLIENT_SUMMARY, "rows": counts[OUT_CLIENT_SUMMARY]},
             {"key": "people_summary", "label": "People summary", "file": OUT_PEOPLE_SUMMARY, "rows": counts[OUT_PEOPLE_SUMMARY]},
+            {"key": "trends", "label": "Monthly and weekly trends", "file": OUT_TRENDS, "rows": counts[OUT_TRENDS]},
         ],
+        "trends": {
+            "basis": "Full timesheet history regardless of the selected window",
+            "start": iso(data["data_start"]), "end": iso(data["data_end"]),
+            "week_start": "Monday",
+            "revenue_rule": "Dated contracts prorated by calendar days in each period; undated or out-of-history contracts spread by hours share.",
+        },
         "quality": [{"check": row["check"], "category": row["category"], "severity": row["severity"],
                      "count": row["count"], "value": row["value"], "detail": row["detail"]} for row in quality_rows],
         "unallocated_variants": {

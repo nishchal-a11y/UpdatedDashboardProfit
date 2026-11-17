@@ -1,6 +1,9 @@
 employee,email,reporting_to,in_employee_master,reason,hours,entries,top_categories
-Anusree P C,anusree@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,145.416667,100,"Hiring & Interview, Capacity Planning:82.42|Others:29.25|Internal communication:15.25"
-Abhinand CP,abhinand@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,111.666667,89,Others:107.92|Team meetings:2.75|Cross-Functional Coordination:1
+Nadir K,nadir@finanshels.com,,no,Not in employee master (no reporting line or department),572.000000,428,Others:416.17|Internal communication:46.17|Team meetings:33.17
+Anusree P C,anusree@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,532.416667,298,"Hiring & Interview, Capacity Planning:351.42|Internal communication:101.75|Others:33.5"
+Sharmin Rajan,sharmin@finanshels.com,,no,Not in employee master (no reporting line or department),248.000000,31,"Training, Learning, Mentoring & Coaching:248"
+Shifin Sadik,shifinsadik@finanshels.com,,no,Not in employee master (no reporting line or department),168.000000,56,"Others:94.75|Training, Learning, Mentoring & Coaching:59|Team meetings:13.25"
+Vansh Agarwal,vansh@finanshels.com,,no,Not in employee master (no reporting line or department),161.000000,81,"Training, Learning, Mentoring & Coaching:51.75|No Work / Idle Time:49.5|Others:46.5"
+Abhinand CP,abhinand@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,129.166667,92,Others:125.42|Team meetings:2.75|Cross-Functional Coordination:1
+Alan jose,alan@finanshels.com,,no,Not in employee master (no reporting line or department),120.000000,15,"Others:112|Training, Learning, Mentoring & Coaching:8"
 Divya Mangtani,divyamangtani@finanshels.com,Brijen Prakash Brahmbhatt,yes,Department 'HR & TA' books no client hours,49.500000,38,Others:45|Employee Engagement Activities:3|Strategy & Planning:1.5
-Nadir K,nadir@finanshels.com,,no,Not in employee master (no reporting line or department),20.000000,19,Others:15.42|Internal communication:2|Systems & Tracker Updates:1.08
-Rupali Raut,rupali@finanshels.com,,no,Not in employee master (no reporting line or department),16.000000,8,Others:8|Team meetings:5.42|No Work / Idle Time:2.58

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Finanshels - Profitability by Project</title>
-  <link rel="icon" type="image/png" href="Finanshels.png">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -196,12 +196,37 @@
       <div class="block-body">
         <p class="note" id="peopleNote"></p>
         <div class="table-scroll"><table class="grid"><thead id="peopleHead"></thead><tbody id="peopleBody"></tbody></table></div>
-        <div class="mini-card">
+        <div class="mini-card" style="display:none !important" hidden>
           <h3>Approved salary revisions</h3>
           <p class="note" id="revisionNote"></p>
           <div class="table-scroll"><table class="grid"><thead id="revisionHead"></thead><tbody id="revisionBody"></tbody></table></div>
         </div>
         <div class="drawer" id="peopleDrill" hidden></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------- monthly comparisons (own page) -->
+    <section class="block" id="section-trends" data-section="trends" data-page="trends">
+      <div class="block-head">
+        <div><h2>Monthly comparisons</h2><p>Projects, people, hours and revenue period on period, with payroll profitability from April onwards. Company-wide over the full timesheet history; the window and filters do not apply.</p></div>
+        <div class="block-tools">
+          <div class="segmented" id="trendGrain" role="group" aria-label="Comparison grain">
+            <button type="button" data-grain="month" class="active">Month on month</button>
+            <button type="button" data-grain="week">Week on week</button>
+          </div>
+          <button class="ghost" id="exportTrends" type="button">Export</button>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="stat-strip trend-strip" id="trendStrip"></div>
+        <p class="note" id="trendCompareNote"></p>
+        <div class="trend-grid" id="trendCharts"></div>
+        <div class="mini-card">
+          <div class="mini-card-head"><h3>Profitability trend</h3><div class="legend" id="profitLegend"></div></div>
+          <div class="trend-grid two" id="profitCharts"></div>
+          <p class="note" id="profitNote"></p>
+        </div>
+        <div class="table-scroll"><table class="grid trend-table"><thead id="trendHead"></thead><tbody id="trendBody"></tbody></table></div>
       </div>
     </section>
 
@@ -319,6 +344,7 @@
   <div id="errorBox" class="error" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/lucide@1.52.0"></script>
-  <script src="app.js?v=11"></script>
+  <div class="chart-tip" id="chartTip" role="tooltip" hidden></div>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

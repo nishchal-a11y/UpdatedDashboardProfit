@@ -176,6 +176,20 @@ def main():
     check("period mismatch excludes prorated projects", not [row for row in mismatch if row["revenue_basis"] == "Prorated"])
     check("manifest row count matches the emitted file", totals["eda_rows"] == len(project_hours))
 
+    # ---- trends (full history; only comparable to the manifest when no window is applied)
+    trends = read("EDA_Trends.csv")
+    months = [row for row in trends if row["grain"] == "month"]
+    weeks = [row for row in trends if row["grain"] == "week"]
+    for metric, tol in (("logged_hours", HOUR_TOL), ("revenue", MONEY_TOL), ("payroll_cost_inr", MONEY_TOL)):
+        month_sum = sum(value(row, metric) for row in months)
+        week_sum = sum(value(row, metric) for row in weeks)
+        check(f"trend weeks = trend months :: {metric}", abs(month_sum - week_sum) < tol, f"{month_sum:,.2f}")
+    if not manifest["window"]["custom"]:
+        month_hours = sum(value(row, "logged_hours") for row in months)
+        month_revenue = sum(value(row, "revenue") for row in months)
+        check("trend months hours = manifest logged hours", abs(month_hours - totals["logged_hours"]) < HOUR_TOL, f"{month_hours:,.4f}")
+        check("trend months revenue = manifest revenue", abs(month_revenue - totals["in_window_revenue"]) < MONEY_TOL, f"{month_revenue:,.2f}")
+
     print()
     print("FAILED:", ", ".join(failures) if failures else "none")
     return 1 if failures else 0

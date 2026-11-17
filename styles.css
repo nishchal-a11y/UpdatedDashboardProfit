@@ -121,7 +121,8 @@ button, select, input { font: inherit; color: inherit; }
 .rail-nav a.page-link.active { background: var(--page-accent); color: #fff; }
 .rail-nav a.page-link.active b { color: rgba(255, 255, 255, 0.72); }
 body[data-view="clients"] .rail,
-body[data-view="people-summary"] .rail { background: var(--page-surface); border-right-color: var(--page-edge); }
+body[data-view="people-summary"] .rail,
+body[data-view="trends"] .rail { background: var(--page-surface); border-right-color: var(--page-edge); }
 
 .rail-foot { display: grid; gap: 8px; }
 .rail-foot small { color: var(--ink-3); font-size: 11px; font-family: var(--mono); }
@@ -340,13 +341,19 @@ button.primary:disabled { opacity: 0.5; cursor: progress; transform: none; }
  * when their own view is on; everything else steps aside while they do. */
 .block[data-page] { display: none; }
 body[data-view="clients"] .block:not([data-page="clients"]),
-body[data-view="people-summary"] .block:not([data-page="people-summary"]) { display: none; }
+body[data-view="people-summary"] .block:not([data-page="people-summary"]),
+body[data-view="trends"] .block:not([data-page="trends"]) { display: none; }
 body[data-view="clients"] .block[data-page="clients"],
-body[data-view="people-summary"] .block[data-page="people-summary"] { display: block; }
+body[data-view="people-summary"] .block[data-page="people-summary"],
+body[data-view="trends"] .block[data-page="trends"] { display: block; }
 body[data-view="clients"] .page-foot,
-body[data-view="people-summary"] .page-foot { display: none; }
+body[data-view="people-summary"] .page-foot,
+body[data-view="trends"] .page-foot { display: none; }
 body[data-view="clients"] .head-actions .ghost:not(#applyWindow):not(#fullWindow),
-body[data-view="people-summary"] .head-actions .ghost:not(#applyWindow):not(#fullWindow) { display: none; }
+body[data-view="people-summary"] .head-actions .ghost:not(#applyWindow):not(#fullWindow),
+body[data-view="trends"] .head-actions .ghost,
+body[data-view="trends"] #rangeControl,
+body[data-view="trends"] #windowStatus { display: none; }
 
 .inline-control { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-3); }
 .inline-control select, .inline-control input {
@@ -729,3 +736,43 @@ table.grid.eda-pivot tbody tr td.eda-level {
   .block-head > div:not(.block-tools) { min-width: 0; }
   .block-tools { width: 100%; }
 }
+
+/* ------------------------------------------------------------ monthly comparisons */
+.segmented { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.segmented button { border: 0; background: transparent; padding: 5px 11px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.segmented button.active { background: var(--panel); color: var(--ink); box-shadow: var(--lift); }
+.trend-strip { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.trend-stat small { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+.trend-stat small em { font-style: normal; }
+.delta { font-family: var(--mono); font-size: 11px; font-weight: 500; white-space: nowrap; color: var(--ink-3); }
+.delta.up { color: var(--good); }
+.delta.down { color: var(--bad); }
+.delta.neutral { color: var(--ink-2); }
+.trend-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 4px; }
+.trend-grid .trend-card { margin: 0; }
+.mini-card .trend-grid .trend-card { border: 0; box-shadow: none; padding: 0; background: transparent; }
+@media (max-width: 1100px) { .trend-grid { grid-template-columns: 1fr; } }
+.trend-svg { display: block; width: 100%; height: auto; aspect-ratio: 640 / 210; margin-top: 6px; overflow: hidden; }
+.trend-svg .grid-line { stroke: var(--line-soft); stroke-width: 1; }
+.trend-svg .grid-line.zero { stroke: var(--line); }
+.trend-svg .axis { fill: var(--ink-3); font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; }
+.trend-svg .value-label { fill: var(--ink); font-size: 11px; font-weight: 600; }
+.trend-svg .partial { opacity: 0.42; }
+.trend-svg .trend-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.trend-svg .trend-dot { stroke: var(--panel); stroke-width: 2; }
+.trend-svg .missing-band { fill: var(--surface); }
+.trend-svg .missing-label { fill: var(--ink-3); font-size: 10.5px; font-family: var(--mono); }
+.trend-svg .hit { fill: transparent; cursor: crosshair; }
+.trend-svg .hit.on { fill: rgba(36, 41, 50, 0.045); }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--ink-2); }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-item i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chart-tip { position: fixed; z-index: 60; pointer-events: none; min-width: 170px; max-width: 280px; padding: 9px 11px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--lift); font-size: 12px; color: var(--ink); display: grid; gap: 4px; }
+.chart-tip[hidden] { display: none; }
+.chart-tip b { font-size: 12.5px; }
+.chart-tip em { font-style: normal; font-size: 11px; color: var(--warn); }
+.chart-tip div { display: flex; align-items: baseline; gap: 8px; }
+.chart-tip div span { color: var(--ink-3); flex: 1; }
+.chart-tip div strong { font-variant-numeric: tabular-nums; font-weight: 600; }
+.trend-table td, .trend-table th { white-space: nowrap; }
+.trend-table tr.partial-row td { color: var(--ink-2); }

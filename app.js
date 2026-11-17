@@ -33,6 +33,7 @@ const PERSON_SUMMARY_PATH = ['client', 'project', 'projectTl'];
 /** Sections that get a page of their own rather than a slot in the scroll
  *  report. The header and filter bar stay put; only the blocks swap. */
 const PAGES = [
+  { view: 'trends', section: 'section-trends', hash: '#trends', label: 'Monthly Comparisons' },
   { view: 'clients', section: 'section-clients', hash: '#clients', label: 'Client summary' },
   { view: 'people-summary', section: 'section-person-summary', hash: '#people-summary', label: 'People summary' },
 ];
@@ -55,6 +56,8 @@ const state = {
   clientSummary: [],
   peopleSummary: [],
   revisions: [],
+  trends: [],
+  trendGrain: 'month',
   costs: new Map(),
   manifest: null,
   filters: {
@@ -674,7 +677,11 @@ function renderHeader() {
   const chip = $('costChip');
   if (costLoaded()) {
     chip.classList.add('ready');
-    $('costChipText').textContent = `Payroll loaded · ${int(state.manifest.cost.matched)} / ${int(state.manifest.totals.employees)} people`;
+    const carried = state.manifest.cost.carried_forward_months || [];
+    const monthName = (key) => new Date(`${key.slice(0, 7)}-01T00:00:00`).toLocaleString('en', { month: 'short' });
+    $('costChipText').textContent = `Payroll loaded · ${int(state.manifest.cost.matched)} / ${int(state.manifest.totals.employees)} people`
+      + (carried.length ? ` · ${monthName(state.manifest.cost.last_payroll_month)} carried to ${monthName(carried.at(-1))}` : '');
+    chip.title = carried.length ? state.manifest.cost.basis : '';
   } else {
     chip.classList.remove('ready');
     $('costChipText').textContent = 'Cost source not loaded';
@@ -2138,6 +2145,388 @@ function renderManifest() {
 
 /* ------------------------------------------------------------------ render */
 
+/* ------------------------------------------------------------------ monthly comparisons */
+
+// Brand orange plus a blue validated for colour-blind separation (worst ΔE 30, protan).
+const TREND_COLORS = { primary: '#f58217', secondary: '#3b6fd8' };
+const compact = (value) => new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+const CHART = { width: 640, height: 210, top: 22, right: 12, bottom: 28, left: 46 };
+
+function parseTrendRow(row) {
+  return {
+    grain: row.grain, key: row.period_key, label: row.label,
+    start: row.period_start, end: row.period_end,
+    calendarDays: num(row.calendar_days), dataDays: num(row.data_days), partial: row.partial === 'yes',
+    projects: num(row.projects_active), clients: num(row.clients_active), people: num(row.people_active),
+    hours: num(row.logged_hours), clientHours: num(row.client_hours), internalHours: num(row.internal_hours),
+    revenue: num(row.revenue), costInr: num(row.payroll_cost_inr),
+    payrollDays: num(row.payroll_days_covered), costedHours: num(row.costed_hours), costedPeople: num(row.costed_people),
+  };
+}
+
+/** Payroll cost in AED at the current FX, or hours × the manual rate when one is applied. */
+function trendCost(row) {
+  const rate = costOverride();
+  return rate !== null ? row.hours * rate : row.costInr * inrToAedRate();
+}
+
+/** Decide whether a period has trustworthy enough cost to show profit.
+ *  Return { cost, profit, margin } (margin in %), or null to leave the period
+ *  out of the profitability charts with a "No payroll data" band. */
+function profitForPeriod(row) {
+  const cost = trendCost(row);
+  // A partly costed period would understate cost and overstate margin, so it
+  // needs every logged day priced, unless a manual rate prices every hour.
+  const priced = costOverride() !== null || row.payrollDays >= row.dataDays;
+  if (!priced || cost <= 0 || row.revenue <= 0) return null;
+  const profit = row.revenue - cost;
+  return { cost, profit, margin: (profit / row.revenue) * 100 };
+}
+
+function niceScale(min, max, ticks = 4) {
+  if (max === min) max = min + 1;
+  const raw = (max - min) / ticks;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((candidate) => candidate >= raw);
+  const lo = Math.floor(min / step) * step;
+  const hi = Math.ceil(max / step) * step;
+  const values = [];
+  for (let value = lo; value <= hi + step / 2; value += step) values.push(Math.round(value * 1e6) / 1e6);
+  return { lo, hi, values };
+}
+
+/** Column with a 4px rounded data end and a square baseline. */
+function barPath(x, from, to, width, round) {
+  const height = Math.abs(from - to);
+  if (height < 0.5) return '';
+  const r = round ? Math.min(4, height, width / 2) : 0;
+  const s = to < from ? 1 : -1;
+  return `M${x},${from}V${to + s * r}Q${x},${to} ${x + r},${to}H${x + width - r}Q${x + width},${to} ${x + width},${to + s * r}V${from}Z`;
+}
+
+/** SVG trend chart. mode: 'stacked' (one or more series summed), 'grouped', or 'line'.
+ *  `missing(row)` marks periods drawn as a shaded band instead of marks. */
+function trendChart({ rows, series, mode = 'stacked', axis = compact, tip, missing, missingLabel = 'No data', labelLast }) {
+  const { width, height, top, right, bottom, left } = CHART;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const band = plotW / Math.max(rows.length, 1);
+  const isMissing = (row) => Boolean(missing && missing(row));
+  // Scale over exactly the marks that get drawn: grouped charts still draw the
+  // series that do not need cost (revenue) inside a missing period.
+  const drawn = (row) => {
+    if (!isMissing(row)) return series;
+    return mode === 'grouped' ? series.filter((item) => !item.needsCost) : [];
+  };
+  const totals = rows.flatMap((row) => {
+    const values = drawn(row).map((item) => item.get(row)).filter((value) => value !== null && value !== undefined);
+    if (!values.length) return [];
+    return mode === 'stacked' ? [values.reduce((sum, value) => sum + value, 0)] : values;
+  });
+  const scale = niceScale(Math.min(0, ...totals), Math.max(0, ...totals) || 1);
+  const y = (value) => top + plotH - ((value - scale.lo) / (scale.hi - scale.lo)) * plotH;
+  const cx = (index) => left + band * index + band / 2;
+  const parts = [];
+
+  // Missing periods first, so gridlines and marks sit on top of the band.
+  let run = null;
+  rows.forEach((row, index) => {
+    if (isMissing(row) && run === null) run = index;
+    if (run !== null && (!isMissing(row) || index === rows.length - 1)) {
+      const last = isMissing(row) ? index : index - 1;
+      const x = left + band * run;
+      const w = band * (last - run + 1);
+      parts.push(`<rect class="missing-band" x="${x}" y="${top}" width="${w}" height="${plotH}"/>`);
+      if (w > 70) parts.push(`<text class="missing-label" x="${x + w / 2}" y="${top + 14}" text-anchor="middle">${esc(missingLabel)}</text>`);
+      run = null;
+    }
+  });
+
+  scale.values.forEach((value) => {
+    parts.push(`<line class="grid-line${value === 0 ? ' zero' : ''}" x1="${left}" x2="${width - right}" y1="${y(value)}" y2="${y(value)}"/>`);
+    parts.push(`<text class="axis" x="${left - 6}" y="${y(value) + 3.5}" text-anchor="end">${esc(axis(value))}</text>`);
+  });
+
+  const every = Math.ceil(rows.length / 12);
+  rows.forEach((row, index) => {
+    if (index % every === 0 || index === rows.length - 1) {
+      const short = row.grain === 'month' ? row.label.slice(0, 3) : row.label.split(' · ')[1];
+      parts.push(`<text class="axis" x="${cx(index)}" y="${height - 9}" text-anchor="middle">${esc(short)}</text>`);
+    }
+  });
+
+  if (mode === 'line') {
+    const item = series[0];
+    let path = '';
+    rows.forEach((row, index) => {
+      const value = isMissing(row) ? null : item.get(row);
+      if (value === null || value === undefined) { path += ' '; return; }
+      path += `${path.endsWith(' ') || !path ? 'M' : 'L'}${cx(index)},${y(value)}`;
+    });
+    parts.push(`<path class="trend-line" d="${path.trim()}" stroke="${item.color}"/>`);
+    rows.forEach((row, index) => {
+      const value = isMissing(row) ? null : item.get(row);
+      if (value === null || value === undefined) return;
+      parts.push(`<circle class="trend-dot${row.partial ? ' partial' : ''}" cx="${cx(index)}" cy="${y(value)}" r="4" fill="${item.color}"/>`);
+    });
+  } else {
+    const groupW = mode === 'grouped' ? Math.min(14, band * 0.34) : Math.min(24, band * 0.62);
+    rows.forEach((row, index) => {
+      if (isMissing(row) && mode !== 'grouped') return;
+      const cls = row.partial ? ' class="partial"' : '';
+      if (mode === 'grouped') {
+        const live = drawn(row);
+        const span = live.length * groupW + (live.length - 1) * 2;
+        live.forEach((item, slot) => {
+          const value = item.get(row);
+          if (value === null || value === undefined) return;
+          const x = cx(index) - span / 2 + slot * (groupW + 2);
+          parts.push(`<path${cls} d="${barPath(x, y(0), y(value), groupW, true)}" fill="${item.color}"/>`);
+        });
+        return;
+      }
+      let base = 0;
+      const values = series.map((item) => item.get(row) || 0);
+      const topIndex = values.reduce((found, value, i) => (value > 0 ? i : found), -1);
+      values.forEach((value, i) => {
+        if (value <= 0) return;
+        const from = y(base);
+        const to = y(base + value) + (i === topIndex ? 0 : 2);
+        parts.push(`<path${cls} d="${barPath(cx(index) - groupW / 2, from, to, groupW, i === topIndex)}" fill="${series[i].color}"/>`);
+        base += value;
+      });
+    });
+  }
+
+  if (labelLast) {
+    const index = rows.map((row) => !isMissing(row)).lastIndexOf(true);
+    if (index >= 0) {
+      const row = rows[index];
+      const value = mode === 'stacked' ? series.reduce((sum, item) => sum + (item.get(row) || 0), 0) : series[0].get(row);
+      if (value !== null && value !== undefined) {
+        parts.push(`<text class="value-label" x="${cx(index)}" y="${y(Math.max(value, 0)) - 7}" text-anchor="middle">${esc(labelLast(value))}</text>`);
+      }
+    }
+  }
+
+  rows.forEach((row, index) => {
+    parts.push(`<rect class="hit" x="${left + band * index}" y="${top}" width="${band}" height="${plotH}" data-tip="${esc(tip(row, index))}"/>`);
+  });
+  return `<svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img">${parts.join('')}</svg>`;
+}
+
+function changeOf(current, previous) {
+  if (previous === null || previous === undefined || !previous) return null;
+  return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+function deltaBadge(change, { neutral = false, unit = '%' } = {}) {
+  if (change === null || !Number.isFinite(change)) return '<span class="delta flat">—</span>';
+  const dir = change > 0.05 ? 'up' : change < -0.05 ? 'down' : 'flat';
+  const arrow = { up: '▲', down: '▼', flat: '▬' }[dir];
+  return `<span class="delta ${dir}${neutral ? ' neutral' : ''}">${arrow} ${dec(Math.abs(change), 1)}${unit}</span>`;
+}
+
+function legendItems(items) {
+  return items.map((item) => `<span class="legend-item"><i style="background:${item.color}"></i>${esc(item.label)}</span>`).join('');
+}
+
+function trendRowsForGrain() {
+  return state.trends.filter((row) => row.grain === state.trendGrain);
+}
+
+const TREND_METRICS = [
+  { key: 'projects', label: 'Projects active', format: int, sub: (row) => `${int(row.clients)} clients` },
+  { key: 'people', label: 'People logging time', format: int, neutral: true, sub: (row) => `${hoursText(row.hours / Math.max(row.people, 1))} per person` },
+  { key: 'hours', label: 'Hours logged', format: hoursText, sub: (row) => `${pct(row.hours ? row.clientHours / row.hours * 100 : 0)} on client work` },
+  { key: 'revenue', label: 'Revenue recognised', format: money, sub: (row) => `${money(row.hours ? row.revenue / row.hours : 0)} / logged hour` },
+];
+
+function renderTrends() {
+  if (!$('section-trends')) return;
+  const rows = trendRowsForGrain();
+  const unit = state.trendGrain === 'month' ? 'month' : 'week';
+  if (!rows.length) {
+    $('trendStrip').innerHTML = '';
+    $('trendCharts').innerHTML = '<p class="note">EDA_Trends.csv is missing. Rebuild the EDA from Sources to create it.</p>';
+    $('profitCharts').innerHTML = '';
+    $('trendHead').innerHTML = '';
+    $('trendBody').innerHTML = '';
+    return;
+  }
+  const profits = rows.map(profitForPeriod);
+  const complete = rows.map((row, index) => ({ row, index })).filter((item) => !item.row.partial);
+  const current = complete.at(-1);
+  const previous = complete.at(-2);
+  const partialRows = rows.filter((row) => row.partial);
+
+  // ---- headline: latest complete period against the one before it
+  const cards = TREND_METRICS.map((metric) => {
+    const now = current ? current.row[metric.key] : 0;
+    const change = current && previous ? changeOf(now, previous.row[metric.key]) : null;
+    return `<div class="stat trend-stat"><span>${esc(metric.label)}</span><strong>${metric.format(now)}</strong>
+      <small>${deltaBadge(change, { neutral: metric.neutral })} <em>${current ? esc(metric.sub(current.row)) : ''}</em></small></div>`;
+  });
+  const marginNow = current ? profits[current.index] : null;
+  const marginPrev = previous ? profits[previous.index] : null;
+  const lastProfit = profits.map((profit, index) => ({ profit, index })).filter((item) => item.profit && !rows[item.index].partial).at(-1);
+  cards.push(`<div class="stat trend-stat"><span>Gross margin</span><strong>${marginNow ? pct(marginNow.margin) : '—'}</strong>
+    <small>${marginNow && marginPrev ? deltaBadge(marginNow.margin - marginPrev.margin, { unit: ' pts' }) : ''}
+    <em>${marginNow ? `${money(marginNow.profit)} gross profit` : lastProfit ? `Last costed: ${esc(rows[lastProfit.index].label)} · ${pct(lastProfit.profit.margin)}` : 'No payroll for this period'}</em></small></div>`);
+  $('trendStrip').innerHTML = cards.join('');
+  $('trendCompareNote').textContent = current && previous
+    ? `${current.row.label} compared with ${previous.row.label}.${partialRows.length ? ` ${partialRows.map((row) => `${row.label} (${row.dataDays} of ${row.calendarDays} days)`).join(', ')} ${partialRows.length > 1 ? 'are' : 'is'} partial, so ${partialRows.length > 1 ? 'they are' : 'it is'} faded in the charts and left out of the headline change.` : ''}`
+    : 'Need at least two complete periods to compare.';
+
+  // ---- small multiples
+  const tipFor = (row, index, lines) => {
+    const prior = rows[index - 1];
+    return `<b>${esc(row.label)}</b>${row.partial ? `<em>Partial · ${row.dataDays} of ${row.calendarDays} days</em>` : ''}`
+      + lines.map(([label, value, change]) => `<div><span>${esc(label)}</span><strong>${value}</strong>${change !== undefined && prior ? deltaBadge(change) : ''}</div>`).join('');
+  };
+  const single = (metric) => trendChart({
+    rows,
+    series: [{ color: TREND_COLORS.primary, get: (row) => row[metric.key] }],
+    axis: metric.key === 'revenue' ? compact : (value) => int(value),
+    labelLast: metric.key === 'revenue' ? compact : metric.key === 'hours' ? compact : int,
+    tip: (row, index) => tipFor(row, index, [[metric.label, metric.format(row[metric.key]), changeOf(row[metric.key], rows[index - 1]?.[metric.key])], ['', esc(metric.sub(row))]]),
+  });
+  const hoursSeries = [
+    { label: 'Client', color: TREND_COLORS.primary, get: (row) => row.clientHours },
+    { label: 'Internal', color: TREND_COLORS.secondary, get: (row) => row.internalHours },
+  ];
+  const chartCard = (title, svg, legend = '') => `<div class="mini-card trend-card"><div class="mini-card-head"><h3>${esc(title)}</h3>${legend ? `<div class="legend">${legend}</div>` : ''}</div>${svg}</div>`;
+  $('trendCharts').innerHTML = [
+    chartCard(`Projects active per ${unit}`, single(TREND_METRICS[0])),
+    chartCard(`People logging time per ${unit}`, single(TREND_METRICS[1])),
+    chartCard(`Hours logged per ${unit}`, trendChart({
+      rows, series: hoursSeries, axis: compact, labelLast: compact,
+      tip: (row, index) => tipFor(row, index, [
+        ['Total', hoursText(row.hours), changeOf(row.hours, rows[index - 1]?.hours)],
+        ['Client', hoursText(row.clientHours)], ['Internal', hoursText(row.internalHours)]]),
+    }), legendItems(hoursSeries)),
+    chartCard(`Revenue recognised per ${unit} (AED)`, single(TREND_METRICS[3])),
+  ].join('');
+
+  // ---- profitability
+  const noCost = (row, index) => !profits[rows.indexOf(row)];
+  const profitSeries = [
+    { label: 'Revenue', color: TREND_COLORS.primary, get: (row) => row.revenue },
+    { label: 'Payroll cost', color: TREND_COLORS.secondary, needsCost: true, get: (row) => profits[rows.indexOf(row)]?.cost ?? null },
+  ];
+  const profitTip = (row, index) => {
+    const profit = profits[index];
+    return tipFor(row, index, profit
+      ? [['Revenue', money(row.revenue)], ['Payroll cost', money(profit.cost)], ['Gross profit', money(profit.profit)], ['Margin', pct(profit.margin)]]
+      : [['Revenue', money(row.revenue)], ['Payroll cost', 'No payroll data']]);
+  };
+  $('profitLegend').innerHTML = legendItems(profitSeries);
+  $('profitCharts').innerHTML = [
+    chartCard(`Revenue vs payroll cost per ${unit} (AED)`, trendChart({
+      rows, series: profitSeries, mode: 'grouped', missing: noCost, missingLabel: 'No payroll data', tip: profitTip,
+    })),
+    chartCard(`Gross margin per ${unit}`, trendChart({
+      rows, mode: 'line', missing: noCost, missingLabel: 'No payroll data', tip: profitTip,
+      axis: (value) => `${int(value)}%`, labelLast: (value) => pct(value),
+      series: [{ color: TREND_COLORS.primary, get: (row) => profits[rows.indexOf(row)]?.margin ?? null }],
+    })),
+  ].join('');
+  const costed = rows.filter((row, index) => profits[index]);
+  const uncosted = rows.filter((row, index) => !profits[index]);
+  const linked = costed.reduce((sum, row) => sum + row.costedHours, 0) / Math.max(costed.reduce((sum, row) => sum + row.hours, 0), 1) * 100;
+  $('profitNote').textContent = [
+    costOverride() !== null
+      ? `Cost uses the manual rate of ${money2(costOverride())} per logged hour for every ${unit}.`
+      : `Cost is the payroll of people who log time, prorated by calendar day at ${inrToAedRate().toFixed(4)} AED per INR.`,
+    costOverride() === null && state.manifest?.cost?.carried_forward_months?.length
+      ? `Payroll runs to ${new Date(`${state.manifest.cost.last_payroll_month}T00:00:00`).toLocaleString('en', { month: 'short', year: 'numeric' })}; later months repeat each current employee's latest monthly cost, with approved salary revisions applied from their effective dates.`
+      : '',
+    costed.length && costOverride() === null ? `${pct(linked)} of hours in costed ${unit}s belong to someone matched to payroll, so margins run high by the unmatched share.` : '',
+    uncosted.length ? `${uncosted.length} ${unit}${uncosted.length > 1 ? 's' : ''} (${uncosted[0].label} – ${uncosted.at(-1).label}) have no usable payroll; upload a newer payroll export in Sources or apply a manual cost / hour in Filters.` : '',
+    'Revenue is the full-history recognised revenue split by period: dated contracts by calendar days, undated ones by hours logged.',
+  ].filter(Boolean).join(' ');
+
+  // ---- table, newest first
+  const deltaCell = (row, index, key) => {
+    const prior = rows[index - 1];
+    return prior ? deltaBadge(changeOf(row[key], prior[key]), { neutral: key === 'people' }) : '<span class="delta flat">—</span>';
+  };
+  $('trendHead').innerHTML = `<tr><th>Period</th><th class="num">Days</th><th class="num">Projects</th><th class="num">Δ</th><th class="num">People</th><th class="num">Δ</th>
+    <th class="num">Hours</th><th class="num">Δ</th><th class="num">Client share</th><th class="num">Revenue</th><th class="num">Δ</th>
+    <th class="num">Payroll cost</th><th class="num">Gross profit</th><th class="num">Margin</th><th class="num">Payroll-linked hours</th></tr>`;
+  $('trendBody').innerHTML = rows.map((row, index) => ({ row, index })).reverse().map(({ row, index }) => {
+    const profit = profits[index];
+    return `<tr class="${row.partial ? 'partial-row' : ''}">
+      <td><b>${esc(row.label)}</b>${row.partial ? ' <span class="tag">partial</span>' : ''}</td>
+      <td class="num">${row.dataDays}/${row.calendarDays}</td>
+      <td class="num">${int(row.projects)}</td><td class="num">${deltaCell(row, index, 'projects')}</td>
+      <td class="num">${int(row.people)}</td><td class="num">${deltaCell(row, index, 'people')}</td>
+      <td class="num">${hoursText(row.hours)}</td><td class="num">${deltaCell(row, index, 'hours')}</td>
+      <td class="num">${pct(row.hours ? row.clientHours / row.hours * 100 : 0)}</td>
+      <td class="num">${money(row.revenue)}</td><td class="num">${deltaCell(row, index, 'revenue')}</td>
+      <td class="num">${profit ? money(profit.cost) : '<span class="locked">—</span>'}</td>
+      <td class="num">${profit ? money(profit.profit) : '<span class="locked">—</span>'}</td>
+      <td class="num">${profit ? pct(profit.margin) : '<span class="locked">—</span>'}</td>
+      <td class="num">${row.payrollDays ? pct(row.hours ? row.costedHours / row.hours * 100 : 0) : '<span class="locked">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportTrends() {
+  const rows = trendRowsForGrain();
+  const profits = rows.map(profitForPeriod);
+  const at = (row) => profits[rows.indexOf(row)];
+  downloadCsv(`trends_${state.trendGrain}.csv`, [
+    { label: 'Period', value: (row) => row.key },
+    { label: 'Label', value: (row) => row.label },
+    { label: 'Start', value: (row) => row.start },
+    { label: 'End', value: (row) => row.end },
+    { label: 'Data days', value: (row) => row.dataDays },
+    { label: 'Partial', value: (row) => (row.partial ? 'yes' : 'no') },
+    { label: 'Projects active', value: (row) => row.projects },
+    { label: 'Clients active', value: (row) => row.clients },
+    { label: 'People active', value: (row) => row.people },
+    { label: 'Logged hours', value: (row) => row.hours.toFixed(2) },
+    { label: 'Client hours', value: (row) => row.clientHours.toFixed(2) },
+    { label: 'Internal hours', value: (row) => row.internalHours.toFixed(2) },
+    { label: 'Revenue AED', value: (row) => row.revenue.toFixed(2) },
+    { label: 'Payroll cost AED', value: (row) => (at(row) ? at(row).cost.toFixed(2) : '') },
+    { label: 'Gross profit AED', value: (row) => (at(row) ? at(row).profit.toFixed(2) : '') },
+    { label: 'Margin %', value: (row) => (at(row) ? at(row).margin.toFixed(2) : '') },
+  ], rows);
+}
+
+function bindTrends() {
+  $('trendGrain').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-grain]');
+    if (!button) return;
+    state.trendGrain = button.dataset.grain;
+    $('trendGrain').querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
+    renderTrends();
+  });
+  $('exportTrends').addEventListener('click', exportTrends);
+  const tipBox = $('chartTip');
+  const section = $('section-trends');
+  section.addEventListener('mousemove', (event) => {
+    const hit = event.target.closest('[data-tip]');
+    if (!hit) { tipBox.hidden = true; return; }
+    tipBox.innerHTML = hit.dataset.tip;
+    tipBox.hidden = false;
+    const pad = 14;
+    const box = tipBox.getBoundingClientRect();
+    const x = event.clientX + pad + box.width > window.innerWidth ? event.clientX - pad - box.width : event.clientX + pad;
+    const y = Math.min(event.clientY + pad, window.innerHeight - box.height - 8);
+    tipBox.style.left = `${x}px`;
+    tipBox.style.top = `${y}px`;
+    section.querySelectorAll('.hit.on').forEach((item) => item.classList.remove('on'));
+    hit.classList.add('on');
+  });
+  section.addEventListener('mouseleave', () => {
+    tipBox.hidden = true;
+    section.querySelectorAll('.hit.on').forEach((item) => item.classList.remove('on'));
+  });
+}
+
 function render() {
   const rows = visibleRows();
   state.visible = rows;
@@ -2151,6 +2540,7 @@ function render() {
   renderPeople();
   renderClients(rows);
   renderPeopleSummary(rows);
+  renderTrends();
   renderManifest();
 }
 
@@ -2160,6 +2550,7 @@ let railObserver = null;
 
 function pageCount(page) {
   const totals = state.manifest?.totals || {};
+  if (page.view === 'trends') return state.trends.filter((row) => row.grain === 'month').length;
   if (page.view === 'clients') return num(totals.clients_summarised) || state.clientSummary.length;
   return num(totals.people_summarised) || state.peopleSummary.length;
 }
@@ -2174,6 +2565,7 @@ const RAIL_ICONS = {
   sources: 'database',
   clients: 'chart-pie',
   'people-summary': 'users-round',
+  trends: 'chart-column-increasing',
 };
 
 function buildRailNav() {
@@ -2726,7 +3118,7 @@ async function loadAll() {
   state.projects = new Map();
   ingestFacts(await loadCsv(`EDA_Project_Hours.csv${stamp}`));
   $('bootText').textContent = 'Loading supporting datasets';
-  const [utilisation, internal, unallocated, unallocatedNoDept, mismatch, audit, costs, clientSummary, peopleSummary, revisions] = await Promise.all([
+  const [utilisation, internal, unallocated, unallocatedNoDept, mismatch, audit, costs, clientSummary, peopleSummary, revisions, trends] = await Promise.all([
     loadCsvOptional(`EDA_Employee_Utilization.csv${stamp}`),
     loadCsvOptional(`EDA_Internal_Time.csv${stamp}`),
     loadCsvOptional(`EDA_Unallocated_Hours.csv${stamp}`),
@@ -2737,7 +3129,9 @@ async function loadAll() {
     loadCsvOptional(`EDA_Client_Summary.csv${stamp}`),
     loadCsvOptional(`EDA_People_Summary.csv${stamp}`),
     loadCsvOptional(`EDA_Salary_Revisions.csv${stamp}`),
+    loadCsvOptional(`EDA_Trends.csv${stamp}`),
   ]);
+  state.trends = trends.map(parseTrendRow);
   state.utilisation = utilisation;
   state.internal = internal;
   state.unallocated = unallocated;
@@ -2768,6 +3162,7 @@ async function init() {
     bindPanels();
     bindClients();
     bindPeopleSummary();
+    bindTrends();
     bindSources();
     render();
     $('boot').classList.add('done');
